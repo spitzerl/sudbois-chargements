@@ -1,3 +1,11 @@
+## Base de donnée
+La base de donnée doit utiliser PostgreSQL et être hébergée sur la plateforme [Supabase](https://supabase.com/)
+
+![MCD de la base de donnée](https://imgur.com/a/HjW8lA9)
+
+
+- - -
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
