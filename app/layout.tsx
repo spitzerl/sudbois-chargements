@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-// @ts-expect-error - Les déclarations de modules CSS ne sont pas fournies
-import "./globals.css";
 import { Navbar } from "@/components/layout/Navbar";
 
 const geistSans = Geist({
