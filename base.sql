@@ -24,18 +24,19 @@ CREATE TABLE IF NOT EXISTS "produits" (
 
 CREATE TABLE IF NOT EXISTS "chargements" (
     "id" UUID DEFAULT gen_random_uuid(),
+    "nom" TEXT,
     "date_creation" TIMESTAMP DEFAULT now(),
+    "date_depart" TIMESTAMP,
+    "date_arrivee" TIMESTAMP,
     "client_id" UUID,
     "transporteur_id" UUID,
     PRIMARY KEY("id")
 );
 
--- TABLE CORRIGÉE
 CREATE TABLE IF NOT EXISTS "chargement_produits" (
     "id" UUID DEFAULT gen_random_uuid(),
     "chargement_id" UUID,
     "produit_id" UUID,
-    -- CORRECTION EFFECTUÉE ICI
     "quantite" NUMERIC NOT NULL CHECK("quantite" > 0),
     PRIMARY KEY("id")
 );
