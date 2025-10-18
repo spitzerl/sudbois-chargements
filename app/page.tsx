@@ -11,6 +11,7 @@ import {
     fetchProduits,
     createChargement,
     updateChargement,
+    updateChargementProduits,
     deleteChargement,
     Client,
     Transporteur,
@@ -40,6 +41,7 @@ function ChargementCard({ charge, onUpdate, onDelete }: {
 }) {
   const [isModifying, setIsModifying] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isEditingProduits, setIsEditingProduits] = useState(false);
   const [modifiedChargement, setModifiedChargement] = useState({
     nom: charge.nom || '',
     date_depart: charge.date_depart || '',
@@ -47,6 +49,10 @@ function ChargementCard({ charge, onUpdate, onDelete }: {
     client_id: charge.client_id,
     transporteur_id: charge.transporteur_id
   });
+  const [modifiedProduits, setModifiedProduits] = useState<{id: string, produitId: string, nom: string, quantite: number}[]>([]);
+  const [availableProduits, setAvailableProduits] = useState<Produit[]>([]);
+  const [selectedProduit, setSelectedProduit] = useState('');
+  const [quantiteProduit, setQuantiteProduit] = useState(1);
   const [clients, setClients] = useState<Client[]>([]);
   const [transporteurs, setTransporteurs] = useState<Transporteur[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -69,16 +75,39 @@ function ChargementCard({ charge, onUpdate, onDelete }: {
     transporteurName = (charge.transporteurs as { nom: string }).nom;
   }
   
-  // Charger les clients et transporteurs pour le formulaire de modification
+  // Charger les données nécessaires pour le formulaire de modification
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [clientsData, transporteursData] = await Promise.all([
+        const [clientsData, transporteursData, produitsData] = await Promise.all([
           fetchClients(),
-          fetchTransporteurs()
+          fetchTransporteurs(),
+          fetchProduits()
         ]);
         setClients(clientsData);
         setTransporteurs(transporteursData);
+        setAvailableProduits(produitsData);
+        
+        // Initialiser les produits modifiés avec les produits actuels du chargement
+        if (charge.produits && charge.produits.length > 0) {
+          const initialProduits = charge.produits.map(produit => {
+            // Extraire le nom du produit
+            let produitNom = "Produit inconnu";
+            if (produit.produits) {
+              if (typeof produit.produits === 'object') {
+                produitNom = (produit.produits as { nom: string }).nom || "Sans nom";
+              }
+            }
+            
+            return {
+              id: produit.id,
+              produitId: produit.produit_id,
+              nom: produitNom,
+              quantite: produit.quantite
+            };
+          });
+          setModifiedProduits(initialProduits);
+        }
       } catch (error) {
         console.error('Erreur lors du chargement des données:', error);
       }
@@ -88,7 +117,7 @@ function ChargementCard({ charge, onUpdate, onDelete }: {
     if (isModifying) {
       loadData();
     }
-  }, [isModifying]);
+  }, [isModifying, charge.produits]);
   
   // Obtenir les informations de statut
   const getStatusInfo = () => {
@@ -120,6 +149,34 @@ function ChargementCard({ charge, onUpdate, onDelete }: {
   const timeOnly = format(new Date(charge.date_creation), 'HH:mm');
   const chargementName = charge.nom || `#${charge.id.substring(0, 6)}`;
   
+  // Gérer l'ajout d'un produit lors de la modification
+  const handleAddModifiedProduit = () => {
+    if (!selectedProduit || quantiteProduit <= 0) {
+      setError('Veuillez sélectionner un produit et une quantité valide');
+      return;
+    }
+
+    const produit = availableProduits.find(p => p.id === selectedProduit);
+    if (!produit) return;
+
+    setModifiedProduits([...modifiedProduits, {
+      id: `temp-${Date.now()}`,
+      produitId: produit.id,
+      nom: produit.nom,
+      quantite: quantiteProduit
+    }]);
+
+    // Reset les valeurs
+    setSelectedProduit('');
+    setQuantiteProduit(1);
+    setError(null);
+  };
+
+  // Gérer la suppression d'un produit lors de la modification
+  const handleRemoveModifiedProduit = (id: string) => {
+    setModifiedProduits(modifiedProduits.filter(p => p.id !== id));
+  };
+  
   // Gérer la soumission du formulaire de modification
   const handleSubmitModification = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -127,7 +184,7 @@ function ChargementCard({ charge, onUpdate, onDelete }: {
     setIsSubmitting(true);
     
     try {
-      // Préparer les mises à jour
+      // Préparer les mises à jour pour les informations générales
       const updates = {
         nom: modifiedChargement.nom || undefined,
         client_id: modifiedChargement.client_id,
@@ -136,8 +193,16 @@ function ChargementCard({ charge, onUpdate, onDelete }: {
         date_arrivee: modifiedChargement.date_arrivee || null
       };
       
-      // Mettre à jour le chargement
+      // Préparer les produits à mettre à jour
+      const produitsToUpdate = modifiedProduits.map(p => ({
+        produitId: p.produitId,
+        quantite: p.quantite
+      }));
+      
+      // Mettre à jour le chargement et ses produits
       await updateChargement(charge.id, updates);
+      await updateChargementProduits(charge.id, produitsToUpdate);
+      
       setIsModifying(false);
       onUpdate();
     } catch (err: unknown) {
@@ -404,78 +469,170 @@ function ChargementCard({ charge, onUpdate, onDelete }: {
                 <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-100 dark:border-blue-800/40 shadow-sm">
                   <h3 className="text-lg font-semibold mb-3 text-blue-800 dark:text-blue-300">Modifier le chargement</h3>
                   
-                  <form onSubmit={handleSubmitModification} className="space-y-4">
-                    <div className="grid gap-4">
-                      <div className="grid gap-1.5">
-                        <Label htmlFor="nom-edit">Nom du chargement</Label>
-                        <Input
-                          id="nom-edit"
-                          value={modifiedChargement.nom}
-                          onChange={(e) => setModifiedChargement({...modifiedChargement, nom: e.target.value})}
-                          placeholder="Nom du chargement"
-                        />
-                      </div>
-                      
-                      <div className="grid gap-1.5">
-                        <Label htmlFor="client-select-edit">Client</Label>
-                        <Select 
-                          value={modifiedChargement.client_id}
-                          onValueChange={(value) => setModifiedChargement({...modifiedChargement, client_id: value})}
-                        >
-                          <SelectTrigger id="client-select-edit">
-                            <SelectValue placeholder="Sélectionner un client" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {clients.map((client) => (
-                              <SelectItem key={client.id} value={client.id}>
-                                {client.nom}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <div className="grid gap-1.5">
-                        <Label htmlFor="transporteur-select-edit">Transporteur</Label>
-                        <Select 
-                          value={modifiedChargement.transporteur_id}
-                          onValueChange={(value) => setModifiedChargement({...modifiedChargement, transporteur_id: value})}
-                        >
-                          <SelectTrigger id="transporteur-select-edit">
-                            <SelectValue placeholder="Sélectionner un transporteur" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {transporteurs.map((transp) => (
-                              <SelectItem key={transp.id} value={transp.id}>
-                                {transp.nom}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <div className="grid gap-1.5">
-                        <Label htmlFor="date-depart-edit">Date de départ</Label>
-                        <Input
-                          id="date-depart-edit"
-                          type="date"
-                          value={modifiedChargement.date_depart}
-                          onChange={(e) => setModifiedChargement({...modifiedChargement, date_depart: e.target.value})}
-                        />
-                      </div>
-                      
-                      <div className="grid gap-1.5">
-                        <Label htmlFor="date-arrivee-edit">Date d&apos;arrivée</Label>
-                        <Input
-                          id="date-arrivee-edit"
-                          type="date"
-                          value={modifiedChargement.date_arrivee}
-                          onChange={(e) => setModifiedChargement({...modifiedChargement, date_arrivee: e.target.value})}
-                        />
+                  <form onSubmit={handleSubmitModification} className="space-y-6">
+                    {/* Informations générales */}
+                    <div>
+                      <h4 className="font-medium mb-2">Informations générales</h4>
+                      <div className="grid gap-4">
+                        <div className="grid gap-1.5">
+                          <Label htmlFor="nom-edit">Nom du chargement</Label>
+                          <Input
+                            id="nom-edit"
+                            value={modifiedChargement.nom}
+                            onChange={(e) => setModifiedChargement({...modifiedChargement, nom: e.target.value})}
+                            placeholder="Nom du chargement"
+                          />
+                        </div>
+                        
+                        <div className="grid gap-1.5">
+                          <Label htmlFor="client-select-edit">Client</Label>
+                          <Select 
+                            value={modifiedChargement.client_id}
+                            onValueChange={(value) => setModifiedChargement({...modifiedChargement, client_id: value})}
+                          >
+                            <SelectTrigger id="client-select-edit">
+                              <SelectValue placeholder="Sélectionner un client" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {clients.map((client) => (
+                                <SelectItem key={client.id} value={client.id}>
+                                  {client.nom}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <div className="grid gap-1.5">
+                          <Label htmlFor="transporteur-select-edit">Transporteur</Label>
+                          <Select 
+                            value={modifiedChargement.transporteur_id}
+                            onValueChange={(value) => setModifiedChargement({...modifiedChargement, transporteur_id: value})}
+                          >
+                            <SelectTrigger id="transporteur-select-edit">
+                              <SelectValue placeholder="Sélectionner un transporteur" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {transporteurs.map((transp) => (
+                                <SelectItem key={transp.id} value={transp.id}>
+                                  {transp.nom}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <div className="grid gap-1.5">
+                          <Label htmlFor="date-depart-edit">Date de départ</Label>
+                          <Input
+                            id="date-depart-edit"
+                            type="date"
+                            value={modifiedChargement.date_depart}
+                            onChange={(e) => setModifiedChargement({...modifiedChargement, date_depart: e.target.value})}
+                          />
+                        </div>
+                        
+                        <div className="grid gap-1.5">
+                          <Label htmlFor="date-arrivee-edit">Date d&apos;arrivée</Label>
+                          <Input
+                            id="date-arrivee-edit"
+                            type="date"
+                            value={modifiedChargement.date_arrivee}
+                            onChange={(e) => setModifiedChargement({...modifiedChargement, date_arrivee: e.target.value})}
+                          />
+                        </div>
                       </div>
                     </div>
                     
-                    <div className="flex justify-end gap-2 mt-4">
+                    {/* Modification des produits */}
+                    <div className="border-t pt-4">
+                      <h4 className="font-medium mb-2">Produits associés</h4>
+                      
+                      {/* Interface d'ajout de produits */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4 p-3 bg-muted/20 rounded-lg">
+                        <div className="grid gap-1.5">
+                          <Label htmlFor="produit-select-edit">Produit</Label>
+                          <Select 
+                            value={selectedProduit}
+                            onValueChange={setSelectedProduit}
+                          >
+                            <SelectTrigger id="produit-select-edit">
+                              <SelectValue placeholder="Sélectionner un produit" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {availableProduits.map((produit) => (
+                                <SelectItem key={produit.id} value={produit.id}>
+                                  {produit.nom}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="grid gap-1.5">
+                          <Label htmlFor="quantite-edit">Quantité</Label>
+                          <Input 
+                            id="quantite-edit" 
+                            type="number" 
+                            min="1" 
+                            value={quantiteProduit} 
+                            onChange={(e) => setQuantiteProduit(parseInt(e.target.value) || 1)}
+                            className="h-10"
+                          />
+                        </div>
+
+                        <div className="flex items-end">
+                          <Button 
+                            type="button" 
+                            onClick={handleAddModifiedProduit}
+                            className="h-10 w-full"
+                          >
+                            <PlusIcon className="size-4 mr-2" />
+                            Ajouter
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      {/* Liste des produits modifiés */}
+                      {modifiedProduits.length > 0 ? (
+                        <div className="border rounded-lg overflow-hidden">
+                          <table className="w-full">
+                            <thead className="bg-muted/20">
+                              <tr>
+                                <th className="text-left p-2 text-sm font-medium">Produit</th>
+                                <th className="text-right p-2 text-sm font-medium">Quantité</th>
+                                <th className="text-center p-2 w-16 text-sm font-medium">Action</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {modifiedProduits.map((produit) => (
+                                <tr key={produit.id} className="border-t">
+                                  <td className="p-2">{produit.nom}</td>
+                                  <td className="p-2 text-right">{produit.quantite}</td>
+                                  <td className="p-2 text-center">
+                                    <Button 
+                                      type="button" 
+                                      variant="ghost" 
+                                      size="sm"
+                                      onClick={() => handleRemoveModifiedProduit(produit.id)}
+                                      className="h-8 w-8 p-0"
+                                    >
+                                      <Trash2 className="size-4 text-destructive" />
+                                    </Button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="bg-muted/10 p-4 rounded-md text-center border">
+                          <p className="text-muted-foreground">Aucun produit associé à ce chargement</p>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex justify-end gap-2 mt-6 border-t pt-4">
                       <Button 
                         type="button" 
                         variant="outline" 
@@ -491,7 +648,7 @@ function ChargementCard({ charge, onUpdate, onDelete }: {
                         {isSubmitting ? (
                           <Loader2 className="mr-2 size-4 animate-spin" />
                         ) : null}
-                        Enregistrer
+                        Enregistrer les modifications
                       </Button>
                     </div>
                     

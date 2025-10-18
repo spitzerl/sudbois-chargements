@@ -215,6 +215,36 @@ export async function updateChargement(
   return true;
 }
 
+export async function updateChargementProduits(
+  id: string,
+  produits: { produitId: string, quantite: number }[]
+) {
+  // 1. Supprimer tous les produits existants associés au chargement
+  const { error: deleteError } = await supabase
+    .from('chargement_produits')
+    .delete()
+    .eq('chargement_id', id);
+  
+  if (deleteError) throw deleteError;
+
+  // 2. Ajouter les nouveaux produits
+  if (produits.length > 0) {
+    const produitsToInsert = produits.map(p => ({
+      chargement_id: id,
+      produit_id: p.produitId,
+      quantite: p.quantite
+    }));
+    
+    const { error: insertError } = await supabase
+      .from('chargement_produits')
+      .insert(produitsToInsert);
+    
+    if (insertError) throw insertError;
+  }
+  
+  return true;
+}
+
 export async function deleteChargement(id: string) {
   // D'abord supprimer les relations produits-chargements
   const { error: produitError } = await supabase
