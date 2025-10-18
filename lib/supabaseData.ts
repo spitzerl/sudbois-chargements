@@ -13,7 +13,7 @@ export type ProduitChargement = {
   chargement_id?: string;
   produit_id: string;
   quantite: number;
-  produits?: { id: string; nom: string }[];
+  produits?: { id: string; nom: string }[] | { id: string; nom: string };
 };
 
 export type Chargement = {
@@ -82,22 +82,44 @@ export async function fetchChargements() {
       .eq('id', charge.transporteur_id)
       .single();
     
-    // Récupérer les produits associés
-    const { data: produitsData } = await supabase
+    // Récupérer les produits associés et leurs informations en une seule requête
+    const { data: chargementProduitsData } = await supabase
       .from('chargement_produits')
-      .select(`
-        id,
-        produit_id,
-        quantite,
-        produits:produit_id(id, nom)
-      `)
+      .select('id, produit_id, quantite')
       .eq('chargement_id', charge.id);
+    
+    // Définir un type explicite pour les produits enrichis
+    let produitsEnriched: ProduitChargement[] = [];
+    
+    if (chargementProduitsData && chargementProduitsData.length > 0) {
+      console.log(`Traitement de ${chargementProduitsData.length} produits pour le chargement ${charge.id}`);
+      
+      // Pour chaque produit associé, récupérer les détails du produit
+      produitsEnriched = await Promise.all(chargementProduitsData.map(async (produit) => {
+        console.log(`Récupération du produit ${produit.produit_id} pour le chargement ${charge.id}`);
+        const { data: produitInfo } = await supabase
+          .from('produits')
+          .select('id, nom')
+          .eq('id', produit.produit_id)
+          .single();
+        
+        console.log(`Infos produit ${produit.produit_id}:`, produitInfo);
+        
+        return {
+          id: produit.id,
+          chargement_id: charge.id,
+          produit_id: produit.produit_id,
+          quantite: produit.quantite,
+          produits: produitInfo // Stockez directement l'objet produit pour simplifier
+        } as ProduitChargement;
+      }));
+    }
     
     return {
       ...charge,
       clients: clientData,
       transporteurs: transporteurData,
-      produits: produitsData || []
+      produits: produitsEnriched
     };
   }));
   
@@ -111,10 +133,23 @@ export async function fetchChargements() {
       status = 'en_cours';
     }
     
-    return {
+    const result = {
       ...charge,
       status
     };
+    
+    // Déboguer les produits de chaque chargement
+    console.log(`Chargement ${result.id} a ${result.produits?.length || 0} produits:`, 
+                result.produits?.map(p => ({ 
+                  id: p.id,
+                  produit_id: p.produit_id,
+                  quantite: p.quantite,
+                  produits_info: Array.isArray(p.produits) ? 
+                    `tableau de ${p.produits.length} éléments` : 
+                    (p.produits ? 'objet unique' : 'absent')
+                })));
+    
+    return result;
   });
   
   return chargementsWithStatus as Chargement[];

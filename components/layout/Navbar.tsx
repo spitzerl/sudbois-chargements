@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from 'next/navigation';
 import { cn } from "@/lib/utils";
-import { Package, Truck } from "lucide-react";
+import { HomeIcon, Package, Truck } from "lucide-react";
 
 export function Navbar({ className }: { className?: string }) {
   const pathname = usePathname();

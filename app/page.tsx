@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
-import { Loader2, PlusIcon, Trash2 } from 'lucide-react'; 
+import { Loader2, PlusIcon, Trash2, Eye } from 'lucide-react'; 
 
 import { 
     fetchClients, 
@@ -22,6 +22,13 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 
 function ChargementCard({ charge }: { charge: Chargement }) {
@@ -52,13 +59,13 @@ function ChargementCard({ charge }: { charge: Chargement }) {
         };
       case 'en_cours': 
         return { 
-          color: 'bg-orange-500', 
-          text: 'En cours'
+          color: 'bg-yellow-500', 
+          text: 'Acheminement en cours'
         };
       default: 
         return { 
           color: 'bg-red-500', 
-          text: 'Non expédié'
+          text: 'En préparation'
         };
     }
   };
@@ -109,37 +116,159 @@ function ChargementCard({ charge }: { charge: Chargement }) {
         </div>
       </div>
       
-      <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm mt-2">
-        <div className="flex items-center text-muted-foreground">Client:</div>
-        <div className="font-medium truncate">{clientName}</div>
-        
-        <div className="flex items-center text-muted-foreground">Transporteur:</div>
-        <div className="truncate">{transporteurName}</div>
-        
-        {charge.produits && charge.produits.length > 0 && (
-          <>
-            <div className="flex items-center text-muted-foreground col-span-2 mt-2 border-t pt-2">
-              <span className="font-medium">Produits</span>
-            </div>
-            <div className="col-span-2">
-              <div className="grid gap-1">
-                {charge.produits.map((produit) => {
-                  const produitNom = produit.produits && (
-                    Array.isArray(produit.produits) 
-                      ? produit.produits[0]?.nom 
-                      : (produit.produits as unknown as { nom: string })?.nom
-                  );
-                  return (
-                    <div key={produit.id} className="flex items-center justify-between text-xs bg-muted/10 px-3 py-1.5 rounded-md">
-                      <span className="font-medium">{produitNom}</span>
-                      <span className="bg-muted/30 px-2 py-0.5 rounded-full">{produit.quantite}</span>
+      {/* Bouton pour voir les détails */}
+      <div className="pt-2 mt-2 border-t">
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm" className="w-full">
+              <Eye className="size-4 mr-2" /> Voir les détails
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[700px] max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-xl">
+                Détails du chargement {chargementName}
+              </DialogTitle>
+            </DialogHeader>
+            
+            <div className="py-4 space-y-8">
+              {/* ID du chargement */}
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-100 dark:border-blue-800/40 shadow-sm">
+                <h3 className="text-lg font-semibold mb-2 text-blue-800 dark:text-blue-300">Informations générales</h3>
+                <div className="bg-white/80 dark:bg-slate-800/50 p-3 rounded-md">
+                  <p className="text-sm text-muted-foreground">ID du chargement</p>
+                  <p className="font-mono">{charge.id}</p>
+                </div>
+                
+                {/* Statut actuel - déplacé ici */}
+                <div className="bg-white/80 dark:bg-slate-800/50 p-3 rounded-md mt-2 flex gap-2 items-center">
+                  <div className={`size-4 rounded-full ${statusInfo.color}`}></div>
+                  <p className="font-medium">Statut actuel: {statusInfo.text}</p>
+                </div>
+              </div>
+              
+              {/* Dates complètes */}
+              <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-100 dark:border-green-800/40 shadow-sm">
+                <h3 className="text-lg font-semibold mb-3 text-green-800 dark:text-green-300">Dates du chargement</h3>
+                <div className="grid sm:grid-cols-3 gap-3">
+                  <div className="bg-white/80 dark:bg-slate-800/50 p-3 rounded-md shadow-sm">
+                    <p className="text-sm font-medium text-green-700 dark:text-green-400">Date de création</p>
+                    <p className="font-medium">
+                      {format(new Date(charge.date_creation), 'dd/MM/yyyy')}
+                    </p>
+                    <p className="text-xs text-muted-foreground font-mono">
+                      {format(new Date(charge.date_creation), 'HH:mm:ss')}
+                    </p>
+                  </div>
+                  
+                  <div className="bg-white/80 dark:bg-slate-800/50 p-3 rounded-md shadow-sm">
+                    <p className="text-sm font-medium text-green-700 dark:text-green-400">Date d&apos;expédition</p>
+                    {charge.date_depart ? (
+                      <>
+                        <p className="font-medium">
+                          {format(new Date(charge.date_depart), 'dd/MM/yyyy')}
+                        </p>
+                        <p className="text-xs text-muted-foreground font-mono">
+                          {format(new Date(charge.date_depart), 'HH:mm:ss')}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="italic text-muted-foreground">Non définie</p>
+                    )}
+                  </div>
+                  
+                  <div className="bg-white/80 dark:bg-slate-800/50 p-3 rounded-md shadow-sm">
+                    <p className="text-sm font-medium text-green-700 dark:text-green-400">Date de livraison</p>
+                    {charge.date_arrivee ? (
+                      <>
+                        <p className="font-medium">
+                          {format(new Date(charge.date_arrivee), 'dd/MM/yyyy')}
+                        </p>
+                        <p className="text-xs text-muted-foreground font-mono">
+                          {format(new Date(charge.date_arrivee), 'HH:mm:ss')}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="italic text-muted-foreground">Non définie</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Informations sur le client et le transporteur */}
+              <div className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-lg border border-amber-100 dark:border-amber-800/40 shadow-sm">
+                <h3 className="text-lg font-semibold mb-3 text-amber-800 dark:text-amber-300">Parties concernées</h3>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="text-md font-medium mb-2 text-amber-700 dark:text-amber-400">Client</h4>
+                    <div className="bg-white/80 dark:bg-slate-800/50 p-3 rounded-md shadow-sm">
+                      <p className="font-medium">{clientName}</p>
+                      <p className="text-sm text-muted-foreground">ID: {charge.client_id}</p>
                     </div>
-                  );
-                })}
+                  </div>
+                  
+                  <div>
+                    <h4 className="text-md font-medium mb-2 text-amber-700 dark:text-amber-400">Transporteur</h4>
+                    <div className="bg-white/80 dark:bg-slate-800/50 p-3 rounded-md shadow-sm">
+                      <p className="font-medium">{transporteurName}</p>
+                      <p className="text-sm text-muted-foreground">ID: {charge.transporteur_id}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Produits détaillés */}
+              <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg border border-purple-100 dark:border-purple-800/40 shadow-sm">
+                <h3 className="text-lg font-semibold mb-3 text-purple-800 dark:text-purple-300">Contenu du chargement</h3>
+                {charge.produits && charge.produits.length > 0 ? (
+                  <div className="bg-white/80 dark:bg-slate-800/50 rounded-lg overflow-hidden shadow-sm">
+                    <table className="w-full">
+                      <thead className="bg-purple-100 dark:bg-purple-900/30">
+                        <tr>
+                          <th className="text-left p-3 text-sm font-medium text-purple-800 dark:text-purple-200">Produit</th>
+                          <th className="text-right p-3 text-sm font-medium text-purple-800 dark:text-purple-200">Quantité</th>
+                          <th className="text-left p-3 text-sm font-medium text-purple-800 dark:text-purple-200">Référence</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {charge.produits.map((produit) => {
+                          // Simplification de l'extraction du nom du produit
+                          let produitNom = "Produit inconnu";
+                          const produitId = produit.produit_id || "";
+                          
+                          try {
+                            if (produit.produits) {
+                              // Nouvelle structure : produit.produits est directement l'objet produit
+                              if (typeof produit.produits === 'object') {
+                                produitNom = (produit.produits as { nom: string }).nom || "Sans nom";
+                              }
+                            }
+                          } catch (error) {
+                            console.error("Erreur d'extraction du nom du produit dans la vue détaillée:", error);
+                          }
+                          
+                          return (
+                            <tr key={produit.id} className="border-t border-purple-100 dark:border-purple-800/30">
+                              <td className="p-3">{produitNom}</td>
+                              <td className="p-3 text-right">{produit.quantite}</td>
+                              <td className="p-3 text-sm font-mono text-muted-foreground">
+                                {produitId}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="bg-white/80 dark:bg-slate-800/50 p-4 rounded-md text-center">
+                    <p className="text-muted-foreground italic">Aucun produit associé à ce chargement</p>
+                  </div>
+                )}
               </div>
             </div>
-          </>
-        )}
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
