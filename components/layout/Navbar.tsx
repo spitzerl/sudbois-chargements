@@ -5,6 +5,9 @@ import { usePathname } from 'next/navigation';
 import { cn } from "@/lib/utils";
 import { HomeIcon, Package, Truck } from "lucide-react";
 
+/**
+ * Barre de navigation principale de l'application
+ */
 export function Navbar({ className }: { className?: string }) {
   const pathname = usePathname();
 

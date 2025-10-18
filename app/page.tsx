@@ -34,6 +34,10 @@ import {
 } from "@/components/ui/dialog";
 
 
+/**
+ * Composant d'affichage et de gestion d'un chargement individuel
+ * Permet la visualisation, modification et suppression d'un chargement
+ */
 function ChargementCard({ charge, onUpdate, onDelete }: { 
   charge: Chargement, 
   onUpdate: () => void, 
@@ -41,7 +45,6 @@ function ChargementCard({ charge, onUpdate, onDelete }: {
 }) {
   const [isModifying, setIsModifying] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isEditingProduits, setIsEditingProduits] = useState(false);
   const [modifiedChargement, setModifiedChargement] = useState({
     nom: charge.nom || '',
     date_depart: charge.date_depart || '',
@@ -75,7 +78,6 @@ function ChargementCard({ charge, onUpdate, onDelete }: {
     transporteurName = (charge.transporteurs as { nom: string }).nom;
   }
   
-  // Charger les données nécessaires pour le formulaire de modification
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -88,10 +90,8 @@ function ChargementCard({ charge, onUpdate, onDelete }: {
         setTransporteurs(transporteursData);
         setAvailableProduits(produitsData);
         
-        // Initialiser les produits modifiés avec les produits actuels du chargement
         if (charge.produits && charge.produits.length > 0) {
           const initialProduits = charge.produits.map(produit => {
-            // Extraire le nom du produit
             let produitNom = "Produit inconnu";
             if (produit.produits) {
               if (typeof produit.produits === 'object') {
@@ -118,7 +118,6 @@ function ChargementCard({ charge, onUpdate, onDelete }: {
     }
   }, [isModifying, charge.produits]);
   
-  // Obtenir les informations de statut
   const getStatusInfo = () => {
     switch(charge.status) {
       case 'livre': 
@@ -133,7 +132,6 @@ function ChargementCard({ charge, onUpdate, onDelete }: {
         };
       case 'non_parti':
       default:
-        // Si une date de départ est prévue mais future
         if (charge.date_depart) {
           const departDate = new Date(charge.date_depart);
           const now = new Date();
@@ -144,7 +142,6 @@ function ChargementCard({ charge, onUpdate, onDelete }: {
             };
           }
         }
-        // Sinon, statut par défaut
         return { 
           color: 'bg-red-500', 
           text: 'En préparation'
@@ -154,14 +151,10 @@ function ChargementCard({ charge, onUpdate, onDelete }: {
 
   const statusInfo = getStatusInfo();
   
-  // Vérifier si le chargement peut être modifié (pas encore parti)
   const canModify = charge.status === 'non_parti';
-  
-  // Formater les dates
   const timeOnly = format(new Date(charge.date_creation), 'HH:mm');
   const chargementName = charge.nom || `#${charge.id.substring(0, 6)}`;
   
-  // Gérer l'ajout d'un produit lors de la modification
   const handleAddModifiedProduit = () => {
     if (!selectedProduit || quantiteProduit <= 0) {
       setError('Veuillez sélectionner un produit et une quantité valide');
@@ -178,7 +171,6 @@ function ChargementCard({ charge, onUpdate, onDelete }: {
       quantite: quantiteProduit
     }]);
 
-    // Reset les valeurs
     setSelectedProduit('');
     setQuantiteProduit(1);
     setError(null);
@@ -710,6 +702,9 @@ function ChargementCard({ charge, onUpdate, onDelete }: {
 }
 
 
+/**
+ * Formulaire de création d'un nouveau chargement
+ */
 function NewChargementForm({ onChargementCreated, clients, transporteurs }: { 
     onChargementCreated: () => void, 
     clients: Client[], 
@@ -757,7 +752,6 @@ function NewChargementForm({ onChargementCreated, clients, transporteurs }: {
       quantite: quantiteProduit
     }]);
 
-    // Reset les valeurs
     setSelectedProduit('');
     setQuantiteProduit(1);
     setShowProduitForm(false);
@@ -794,7 +788,6 @@ function NewChargementForm({ onChargementCreated, clients, transporteurs }: {
       );
       
       alert('Chargement créé avec succès !');
-      // Reset le formulaire
       setSelectedClient('');
       setSelectedTransporteur('');
       setNomChargement('');
@@ -1028,6 +1021,10 @@ function NewChargementForm({ onChargementCreated, clients, transporteurs }: {
   );
 }
 
+/**
+ * Composant principal du tableau de bord des chargements
+ * Gère l'affichage, la création, le filtrage et le tri des chargements
+ */
 export default function ChargementsDashboard() {
   const [chargements, setChargements] = useState<Chargement[]>([]);
   const [filteredChargements, setFilteredChargements] = useState<Chargement[]>([]);
@@ -1040,11 +1037,9 @@ export default function ChargementsDashboard() {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [filterStatus, setFilterStatus] = useState<'all' | 'non_parti' | 'en_cours' | 'livre'>('all');
 
-  // Fonction pour trier et filtrer les chargements
   const sortAndFilterChargements = useCallback(() => {
     let result = [...chargements];
     
-    // Filtrer par recherche (nom ou id)
     if (searchTerm) {
       const lowerCaseSearch = searchTerm.toLowerCase();
       result = result.filter(charge => 
@@ -1053,12 +1048,10 @@ export default function ChargementsDashboard() {
       );
     }
     
-    // Filtrer par statut
     if (filterStatus !== 'all') {
       result = result.filter(charge => charge.status === filterStatus);
     }
     
-    // Trier
     result.sort((a, b) => {
       if (sortOption === 'date') {
         const dateA = new Date(a.date_creation).getTime();

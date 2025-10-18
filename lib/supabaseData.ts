@@ -49,6 +49,10 @@ export async function fetchProduits() {
   return data as Produit[];
 }
 
+/**
+ * Récupère la liste des chargements avec leurs clients, transporteurs et produits associés
+ * Calcule également le statut en fonction des dates
+ */
 export async function fetchChargements() {
   const { data: chargementsData, error: chargementsError } = await supabase
     .from('chargements')
@@ -128,19 +132,18 @@ export async function fetchChargements() {
       }
     }
     
-    const result = {
+    return {
       ...charge,
       status
     };
-    
-
-    
-    return result;
   });
   
   return chargementsWithStatus as Chargement[];
 }
 
+/**
+ * Crée un nouveau chargement et associe des produits si fournis
+ */
 export async function createChargement(
   clientId: string, 
   transporteurId: string, 
@@ -149,7 +152,6 @@ export async function createChargement(
   dateArrivee?: string,
   produits?: { produitId: string, quantite: number }[]
 ) {
-  // Insérer le chargement de base
   const { data: chargement, error } = await supabase
     .from('chargements')
     .insert({ 
@@ -164,7 +166,6 @@ export async function createChargement(
   
   if (error) throw error;
   
-  // Si des produits sont fournis, les associer au chargement
   if (produits && produits.length > 0 && chargement) {
     const produitsToInsert = produits.map(p => ({
       chargement_id: chargement.id,
@@ -201,6 +202,10 @@ export async function updateChargement(
   return true;
 }
 
+/**
+ * Met à jour la liste des produits associés à un chargement
+ * Supprime tous les produits existants puis en insère de nouveaux
+ */
 export async function updateChargementProduits(
   id: string,
   produits: { produitId: string, quantite: number }[]
@@ -228,6 +233,9 @@ export async function updateChargementProduits(
   return true;
 }
 
+/**
+ * Supprime un chargement et tous ses produits associés
+ */
 export async function deleteChargement(id: string) {
   const { error: produitError } = await supabase
     .from('chargement_produits')
