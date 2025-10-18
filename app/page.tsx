@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
-import { Loader2, PlusIcon, Trash2, Eye } from 'lucide-react'; 
+import { Loader2, PlusIcon, Trash2, Eye, Pencil, AlertCircle } from 'lucide-react'; 
 
 import { 
     fetchClients, 
@@ -10,6 +10,8 @@ import {
     fetchChargements, 
     fetchProduits,
     createChargement,
+    updateChargement,
+    deleteChargement,
     Client,
     Transporteur,
     Chargement,
@@ -31,7 +33,25 @@ import {
 } from "@/components/ui/dialog";
 
 
-function ChargementCard({ charge }: { charge: Chargement }) {
+function ChargementCard({ charge, onUpdate, onDelete }: { 
+  charge: Chargement, 
+  onUpdate: () => void, 
+  onDelete: (id: string) => void 
+}) {
+  const [isModifying, setIsModifying] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [modifiedChargement, setModifiedChargement] = useState({
+    nom: charge.nom || '',
+    date_depart: charge.date_depart || '',
+    date_arrivee: charge.date_arrivee || '',
+    client_id: charge.client_id,
+    transporteur_id: charge.transporteur_id
+  });
+  const [clients, setClients] = useState<Client[]>([]);
+  const [transporteurs, setTransporteurs] = useState<Transporteur[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   let clientName = 'Inconnu';
   let transporteurName = 'Inconnu';
   
@@ -48,6 +68,27 @@ function ChargementCard({ charge }: { charge: Chargement }) {
   else if (charge.transporteurs && typeof charge.transporteurs === 'object' && 'nom' in charge.transporteurs) {
     transporteurName = (charge.transporteurs as { nom: string }).nom;
   }
+  
+  // Charger les clients et transporteurs pour le formulaire de modification
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [clientsData, transporteursData] = await Promise.all([
+          fetchClients(),
+          fetchTransporteurs()
+        ]);
+        setClients(clientsData);
+        setTransporteurs(transporteursData);
+      } catch (error) {
+        console.error('Erreur lors du chargement des données:', error);
+      }
+    };
+    
+    // Ne charger les données que si le chargement est en modification
+    if (isModifying) {
+      loadData();
+    }
+  }, [isModifying]);
   
   // Obtenir les informations de statut
   const getStatusInfo = () => {
@@ -72,9 +113,69 @@ function ChargementCard({ charge }: { charge: Chargement }) {
 
   const statusInfo = getStatusInfo();
   
+  // Vérifier si le chargement peut être modifié (pas encore parti)
+  const canModify = charge.status === 'non_parti';
+  
   // Formater les dates
   const timeOnly = format(new Date(charge.date_creation), 'HH:mm');
   const chargementName = charge.nom || `#${charge.id.substring(0, 6)}`;
+  
+  // Gérer la soumission du formulaire de modification
+  const handleSubmitModification = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setIsSubmitting(true);
+    
+    try {
+      // Préparer les mises à jour
+      const updates = {
+        nom: modifiedChargement.nom || undefined,
+        client_id: modifiedChargement.client_id,
+        transporteur_id: modifiedChargement.transporteur_id,
+        date_depart: modifiedChargement.date_depart || null,
+        date_arrivee: modifiedChargement.date_arrivee || null
+      };
+      
+      // Mettre à jour le chargement
+      await updateChargement(charge.id, updates);
+      setIsModifying(false);
+      onUpdate();
+    } catch (err: unknown) {
+      let errorMessage = 'Échec de la modification du chargement.';
+      
+      if (err instanceof Error) {
+        errorMessage = err.message;
+      } else if (typeof err === 'object' && err !== null && 'message' in err) {
+        errorMessage = (err as { message: string }).message;
+      }
+      
+      setError(errorMessage);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  
+  // Gérer la suppression d'un chargement
+  const handleDeleteChargement = async () => {
+    setIsSubmitting(true);
+    try {
+      await deleteChargement(charge.id);
+      setIsDeleting(false);
+      onDelete(charge.id);
+    } catch (err) {
+      let errorMessage = 'Échec de la suppression du chargement.';
+      
+      if (err instanceof Error) {
+        errorMessage = err.message;
+      } else if (typeof err === 'object' && err !== null && 'message' in err) {
+        errorMessage = (err as { message: string }).message;
+      }
+      
+      setError(errorMessage);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="border rounded-lg p-4 space-y-2 bg-card shadow-lg transition-all hover:bg-muted/20">
@@ -266,6 +367,170 @@ function ChargementCard({ charge }: { charge: Chargement }) {
                   </div>
                 )}
               </div>
+              
+              {/* Options de modification et suppression - présentes pour tous les chargements mais désactivées si non modifiable */}
+              <div className="bg-gray-50 dark:bg-gray-900/20 p-4 rounded-lg border border-gray-100 dark:border-gray-800/40 shadow-sm">
+                <h3 className="text-lg font-semibold mb-3 text-gray-800 dark:text-gray-300">Actions</h3>
+                
+                {!canModify && (
+                  <div className="mb-2 p-2 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 rounded text-sm">
+                    <p>Ce chargement ne peut plus être modifié car il a déjà été expédié ou livré.</p>
+                  </div>
+                )}
+                
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Button 
+                    variant="outline" 
+                    className="flex-1"
+                    onClick={() => setIsModifying(true)}
+                    disabled={!canModify}
+                  >
+                    <Pencil className="size-4 mr-2" /> Modifier le chargement
+                  </Button>
+                  
+                  <Button 
+                    variant="destructive" 
+                    className="flex-1"
+                    onClick={() => setIsDeleting(true)}
+                    disabled={!canModify}
+                  >
+                    <AlertCircle className="size-4 mr-2" /> Annuler le chargement
+                  </Button>
+                </div>
+              </div>
+
+              {/* Formulaire de modification */}
+              {isModifying && (
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-100 dark:border-blue-800/40 shadow-sm">
+                  <h3 className="text-lg font-semibold mb-3 text-blue-800 dark:text-blue-300">Modifier le chargement</h3>
+                  
+                  <form onSubmit={handleSubmitModification} className="space-y-4">
+                    <div className="grid gap-4">
+                      <div className="grid gap-1.5">
+                        <Label htmlFor="nom-edit">Nom du chargement</Label>
+                        <Input
+                          id="nom-edit"
+                          value={modifiedChargement.nom}
+                          onChange={(e) => setModifiedChargement({...modifiedChargement, nom: e.target.value})}
+                          placeholder="Nom du chargement"
+                        />
+                      </div>
+                      
+                      <div className="grid gap-1.5">
+                        <Label htmlFor="client-select-edit">Client</Label>
+                        <Select 
+                          value={modifiedChargement.client_id}
+                          onValueChange={(value) => setModifiedChargement({...modifiedChargement, client_id: value})}
+                        >
+                          <SelectTrigger id="client-select-edit">
+                            <SelectValue placeholder="Sélectionner un client" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {clients.map((client) => (
+                              <SelectItem key={client.id} value={client.id}>
+                                {client.nom}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="grid gap-1.5">
+                        <Label htmlFor="transporteur-select-edit">Transporteur</Label>
+                        <Select 
+                          value={modifiedChargement.transporteur_id}
+                          onValueChange={(value) => setModifiedChargement({...modifiedChargement, transporteur_id: value})}
+                        >
+                          <SelectTrigger id="transporteur-select-edit">
+                            <SelectValue placeholder="Sélectionner un transporteur" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {transporteurs.map((transp) => (
+                              <SelectItem key={transp.id} value={transp.id}>
+                                {transp.nom}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="grid gap-1.5">
+                        <Label htmlFor="date-depart-edit">Date de départ</Label>
+                        <Input
+                          id="date-depart-edit"
+                          type="date"
+                          value={modifiedChargement.date_depart}
+                          onChange={(e) => setModifiedChargement({...modifiedChargement, date_depart: e.target.value})}
+                        />
+                      </div>
+                      
+                      <div className="grid gap-1.5">
+                        <Label htmlFor="date-arrivee-edit">Date d&apos;arrivée</Label>
+                        <Input
+                          id="date-arrivee-edit"
+                          type="date"
+                          value={modifiedChargement.date_arrivee}
+                          onChange={(e) => setModifiedChargement({...modifiedChargement, date_arrivee: e.target.value})}
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="flex justify-end gap-2 mt-4">
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        onClick={() => setIsModifying(false)}
+                        disabled={isSubmitting}
+                      >
+                        Annuler
+                      </Button>
+                      <Button 
+                        type="submit"
+                        disabled={isSubmitting}
+                      >
+                        {isSubmitting ? (
+                          <Loader2 className="mr-2 size-4 animate-spin" />
+                        ) : null}
+                        Enregistrer
+                      </Button>
+                    </div>
+                    
+                    {error && <p className="text-destructive text-sm mt-2">{error}</p>}
+                  </form>
+                </div>
+              )}
+
+              {/* Confirmation de suppression */}
+              {isDeleting && (
+                <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg border border-red-100 dark:border-red-800/40 shadow-sm">
+                  <h3 className="text-lg font-semibold mb-3 text-red-800 dark:text-red-300">Confirmer l&apos;annulation</h3>
+                  <p className="mb-4">Êtes-vous sûr de vouloir annuler ce chargement ? Cette action est irréversible.</p>
+                  
+                  <div className="flex justify-end gap-2">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={() => setIsDeleting(false)}
+                      disabled={isSubmitting}
+                    >
+                      Annuler
+                    </Button>
+                    <Button 
+                      type="button"
+                      variant="destructive"
+                      onClick={handleDeleteChargement}
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? (
+                        <Loader2 className="mr-2 size-4 animate-spin" />
+                      ) : null}
+                      Confirmer la suppression
+                    </Button>
+                  </div>
+                  
+                  {error && <p className="text-destructive text-sm mt-2">{error}</p>}
+                </div>
+              )}
             </div>
           </DialogContent>
         </Dialog>
@@ -609,8 +874,6 @@ export default function ChargementsDashboard() {
         fetchClients(),
         fetchTransporteurs(),
       ]);
-
-
       
       setChargements(chargementsData);
       setClients(clientsData);
@@ -630,6 +893,12 @@ export default function ChargementsDashboard() {
       setLoading(false);
     }
   }, []);
+
+  // Gérer la suppression d'un chargement
+  const handleDeleteChargement = (id: string) => {
+    // Mettre à jour la liste locale immédiatement pour une UX plus réactive
+    setChargements((prevChargements) => prevChargements.filter(c => c.id !== id));
+  };
 
   useEffect(() => {
     loadData();
@@ -681,7 +950,12 @@ export default function ChargementsDashboard() {
                 </div>
               ) : (
                 chargements.map((charge) => (
-                  <ChargementCard key={charge.id} charge={charge} />
+                  <ChargementCard 
+                    key={charge.id} 
+                    charge={charge} 
+                    onUpdate={loadData} 
+                    onDelete={handleDeleteChargement} 
+                  />
                 ))
               )}
             </div>

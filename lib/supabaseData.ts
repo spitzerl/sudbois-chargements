@@ -195,3 +195,41 @@ export async function createChargement(
   
   return chargement?.id;
 }
+
+export async function updateChargement(
+  id: string,
+  updates: {
+    nom?: string,
+    client_id?: string,
+    transporteur_id?: string,
+    date_depart?: string | null,
+    date_arrivee?: string | null
+  }
+) {
+  const { error } = await supabase
+    .from('chargements')
+    .update(updates)
+    .eq('id', id);
+  
+  if (error) throw error;
+  return true;
+}
+
+export async function deleteChargement(id: string) {
+  // D'abord supprimer les relations produits-chargements
+  const { error: produitError } = await supabase
+    .from('chargement_produits')
+    .delete()
+    .eq('chargement_id', id);
+  
+  if (produitError) throw produitError;
+  
+  // Ensuite supprimer le chargement
+  const { error } = await supabase
+    .from('chargements')
+    .delete()
+    .eq('id', id);
+  
+  if (error) throw error;
+  return true;
+}
