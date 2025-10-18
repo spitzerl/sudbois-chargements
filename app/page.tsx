@@ -399,43 +399,45 @@ function ChargementCard({ charge, onUpdate, onDelete }: {
                 <h3 className="text-lg font-semibold mb-3 text-purple-800 dark:text-purple-300">Contenu du chargement</h3>
                 {charge.produits && charge.produits.length > 0 ? (
                   <div className="bg-white/80 dark:bg-slate-800/50 rounded-lg overflow-hidden shadow-sm">
-                    <table className="w-full">
-                      <thead className="bg-purple-100 dark:bg-purple-900/30">
-                        <tr>
-                          <th className="text-left p-3 text-sm font-medium text-purple-800 dark:text-purple-200">Produit</th>
-                          <th className="text-right p-3 text-sm font-medium text-purple-800 dark:text-purple-200">Quantité</th>
-                          <th className="text-left p-3 text-sm font-medium text-purple-800 dark:text-purple-200">Référence</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {charge.produits.map((produit) => {
-                          // Simplification de l'extraction du nom du produit
-                          let produitNom = "Produit inconnu";
-                          const produitId = produit.produit_id || "";
-                          
-                          try {
-                            if (produit.produits) {
-                              // Nouvelle structure : produit.produits est directement l'objet produit
-                              if (typeof produit.produits === 'object') {
-                                produitNom = (produit.produits as { nom: string }).nom || "Sans nom";
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-purple-100 dark:bg-purple-900/30">
+                          <tr>
+                            <th className="text-left p-3 text-sm font-medium text-purple-800 dark:text-purple-200">Produit</th>
+                            <th className="text-right p-3 text-sm font-medium text-purple-800 dark:text-purple-200">Quantité</th>
+                            <th className="text-left p-3 text-sm font-medium text-purple-800 dark:text-purple-200 hidden sm:table-cell">Référence</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {charge.produits.map((produit) => {
+                            // Simplification de l'extraction du nom du produit
+                            let produitNom = "Produit inconnu";
+                            const produitId = produit.produit_id || "";
+                            
+                            try {
+                              if (produit.produits) {
+                                // Nouvelle structure : produit.produits est directement l'objet produit
+                                if (typeof produit.produits === 'object') {
+                                  produitNom = (produit.produits as { nom: string }).nom || "Sans nom";
+                                }
                               }
+                            } catch (error) {
+                              console.error("Erreur d'extraction du nom du produit dans la vue détaillée:", error);
                             }
-                          } catch (error) {
-                            console.error("Erreur d'extraction du nom du produit dans la vue détaillée:", error);
-                          }
-                          
-                          return (
-                            <tr key={produit.id} className="border-t border-purple-100 dark:border-purple-800/30">
-                              <td className="p-3">{produitNom}</td>
-                              <td className="p-3 text-right">{produit.quantite}</td>
-                              <td className="p-3 text-sm font-mono text-muted-foreground">
-                                {produitId}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                            
+                            return (
+                              <tr key={produit.id} className="border-t border-purple-100 dark:border-purple-800/30">
+                                <td className="p-3">{produitNom}</td>
+                                <td className="p-3 text-right">{produit.quantite}</td>
+                                <td className="p-3 text-sm font-mono text-muted-foreground hidden sm:table-cell">
+                                  {produitId}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 ) : (
                   <div className="bg-white/80 dark:bg-slate-800/50 p-4 rounded-md text-center">
@@ -596,7 +598,7 @@ function ChargementCard({ charge, onUpdate, onDelete }: {
                             onClick={handleAddModifiedProduit}
                             className="h-10 w-full"
                           >
-                            <PlusIcon className="size-4 mr-2" />
+                            <PlusIcon className="size-4 mr-2 hidden sm:inline" />
                             Ajouter
                           </Button>
                         </div>
@@ -605,34 +607,36 @@ function ChargementCard({ charge, onUpdate, onDelete }: {
 
                       {modifiedProduits.length > 0 ? (
                         <div className="border rounded-lg overflow-hidden">
-                          <table className="w-full">
-                            <thead className="bg-muted/20">
-                              <tr>
-                                <th className="text-left p-2 text-sm font-medium">Produit</th>
-                                <th className="text-right p-2 text-sm font-medium">Quantité</th>
-                                <th className="text-center p-2 w-16 text-sm font-medium">Action</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {modifiedProduits.map((produit) => (
-                                <tr key={produit.id} className="border-t">
-                                  <td className="p-2">{produit.nom}</td>
-                                  <td className="p-2 text-right">{produit.quantite}</td>
-                                  <td className="p-2 text-center">
-                                    <Button 
-                                      type="button" 
-                                      variant="ghost" 
-                                      size="sm"
-                                      onClick={() => handleRemoveModifiedProduit(produit.id)}
-                                      className="h-8 w-8 p-0"
-                                    >
-                                      <Trash2 className="size-4 text-destructive" />
-                                    </Button>
-                                  </td>
+                          <div className="overflow-x-auto">
+                            <table className="w-full">
+                              <thead className="bg-muted/20">
+                                <tr>
+                                  <th className="text-left p-2 text-sm font-medium">Produit</th>
+                                  <th className="text-right p-2 text-sm font-medium">Quantité</th>
+                                  <th className="text-center p-2 w-16 text-sm font-medium">Action</th>
                                 </tr>
-                              ))}
-                            </tbody>
-                          </table>
+                              </thead>
+                              <tbody>
+                                {modifiedProduits.map((produit) => (
+                                  <tr key={produit.id} className="border-t">
+                                    <td className="p-2">{produit.nom}</td>
+                                    <td className="p-2 text-right">{produit.quantite}</td>
+                                    <td className="p-2 text-center">
+                                      <Button 
+                                        type="button" 
+                                        variant="ghost" 
+                                        size="sm"
+                                        onClick={() => handleRemoveModifiedProduit(produit.id)}
+                                        className="h-8 w-8 p-0"
+                                      >
+                                        <Trash2 className="size-4 text-destructive" />
+                                      </Button>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
                         </div>
                       ) : (
                         <div className="bg-muted/10 p-4 rounded-md text-center border">
@@ -1026,10 +1030,56 @@ function NewChargementForm({ onChargementCreated, clients, transporteurs }: {
 
 export default function ChargementsDashboard() {
   const [chargements, setChargements] = useState<Chargement[]>([]);
+  const [filteredChargements, setFilteredChargements] = useState<Chargement[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [transporteurs, setTransporteurs] = useState<Transporteur[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortOption, setSortOption] = useState<'date' | 'status'>('date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'non_parti' | 'en_cours' | 'livre'>('all');
+
+  // Fonction pour trier et filtrer les chargements
+  const sortAndFilterChargements = useCallback(() => {
+    let result = [...chargements];
+    
+    // Filtrer par recherche (nom ou id)
+    if (searchTerm) {
+      const lowerCaseSearch = searchTerm.toLowerCase();
+      result = result.filter(charge => 
+        (charge.nom?.toLowerCase().includes(lowerCaseSearch) || 
+         charge.id.toLowerCase().includes(lowerCaseSearch))
+      );
+    }
+    
+    // Filtrer par statut
+    if (filterStatus !== 'all') {
+      result = result.filter(charge => charge.status === filterStatus);
+    }
+    
+    // Trier
+    result.sort((a, b) => {
+      if (sortOption === 'date') {
+        const dateA = new Date(a.date_creation).getTime();
+        const dateB = new Date(b.date_creation).getTime();
+        return sortDirection === 'asc' ? dateA - dateB : dateB - dateA;
+      } else {
+        // Tri par statut avec priorité: non_parti > en_cours > livre
+        const statusOrder = { non_parti: 0, en_cours: 1, livre: 2 };
+        const orderA = statusOrder[a.status || 'non_parti'];
+        const orderB = statusOrder[b.status || 'non_parti'];
+        return sortDirection === 'asc' ? orderA - orderB : orderB - orderA;
+      }
+    });
+    
+    setFilteredChargements(result);
+  }, [chargements, searchTerm, filterStatus, sortOption, sortDirection]);
+
+  // Appliquer le tri et le filtrage chaque fois que les dépendances changent
+  useEffect(() => {
+    sortAndFilterChargements();
+  }, [sortAndFilterChargements]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -1062,8 +1112,12 @@ export default function ChargementsDashboard() {
 
   // Gérer la suppression d'un chargement
   const handleDeleteChargement = (id: string) => {
-    // Mettre à jour la liste locale immédiatement pour une UX plus réactive
     setChargements((prevChargements) => prevChargements.filter(c => c.id !== id));
+  };
+
+  // Gérer le changement de direction du tri
+  const handleToggleSortDirection = () => {
+    setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
   };
 
   useEffect(() => {
@@ -1089,8 +1143,87 @@ export default function ChargementsDashboard() {
           transporteurs={transporteurs}
         />
         
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center border-b pb-2 mb-4">
-            <h2 className="text-2xl font-semibold">Liste des chargements</h2>
+        <div className="flex flex-col border-b pb-4 mb-6">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4">
+              <h2 className="text-2xl font-semibold mb-4 sm:mb-0">Liste des chargements</h2>
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto mb-2 sm:mb-0">
+                <span className="text-sm text-muted-foreground w-full sm:w-auto mb-1 sm:mb-0">Trier par:</span>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setSortOption('date')}
+                  className={`${sortOption === 'date' ? 'bg-muted' : ''} flex-1 sm:flex-none`}
+                >
+                  Date {sortOption === 'date' ? (sortDirection === 'desc' ? '↓' : '↑') : ''}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setSortOption('status')}
+                  className={`${sortOption === 'status' ? 'bg-muted' : ''} flex-1 sm:flex-none`}
+                >
+                  Statut {sortOption === 'status' ? (sortDirection === 'desc' ? '↓' : '↑') : ''}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleToggleSortDirection}
+                  aria-label="Inverser l'ordre de tri"
+                  className="flex-1 sm:flex-none"
+                >
+                  Inverser
+                </Button>
+              </div>
+            </div>
+            
+            <div className="flex flex-col gap-4 mb-2">
+              <div className="w-full">
+                <div className="text-sm text-muted-foreground mb-1">Rechercher:</div>
+                <Input
+                  placeholder="Rechercher par nom ou ID..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <div className="text-sm text-muted-foreground mb-2">Filtrer par statut:</div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full">
+                  <Button 
+                    variant={filterStatus === 'all' ? 'default' : 'outline'} 
+                    size="sm"
+                    onClick={() => setFilterStatus('all')}
+                    className="w-full"
+                  >
+                    Tous
+                  </Button>
+                  <Button 
+                    variant={filterStatus === 'non_parti' ? 'default' : 'outline'} 
+                    size="sm"
+                    onClick={() => setFilterStatus('non_parti')}
+                    className="w-full text-red-500"
+                  >
+                    En préparation
+                  </Button>
+                  <Button 
+                    variant={filterStatus === 'en_cours' ? 'default' : 'outline'} 
+                    size="sm"
+                    onClick={() => setFilterStatus('en_cours')}
+                    className="w-full text-yellow-500"
+                  >
+                    En cours
+                  </Button>
+                  <Button 
+                    variant={filterStatus === 'livre' ? 'default' : 'outline'} 
+                    size="sm"
+                    onClick={() => setFilterStatus('livre')}
+                    className="w-full text-green-500"
+                  >
+                    Livré
+                  </Button>
+                </div>
+              </div>
+            </div>
         </div>
 
         {error && (
@@ -1105,17 +1238,24 @@ export default function ChargementsDashboard() {
           </div>
         ) : (
           <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              {chargements.length} chargement{chargements.length !== 1 ? 's' : ''} au total
-            </p>
+            <div className="flex items-center">
+              <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10 dark:bg-blue-900/20 dark:text-blue-300 dark:ring-blue-500/30">
+                {filteredChargements.length} chargement{filteredChargements.length !== 1 ? 's' : ''}
+              </span>
+              {filteredChargements.length !== chargements.length && (
+                <span className="ml-2 text-xs text-muted-foreground">
+                  sur {chargements.length} au total
+                </span>
+              )}
+            </div>
             
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {chargements.length === 0 ? (
+              {filteredChargements.length === 0 ? (
                 <div className="text-center col-span-full bg-muted/20 rounded-lg p-8">
                   <p className="text-muted-foreground">Aucun chargement trouvé.</p>
                 </div>
               ) : (
-                chargements.map((charge) => (
+                filteredChargements.map((charge) => (
                   <ChargementCard 
                     key={charge.id} 
                     charge={charge} 
