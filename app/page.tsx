@@ -132,7 +132,20 @@ function ChargementCard({ charge, onUpdate, onDelete }: {
           color: 'bg-yellow-500', 
           text: 'Acheminement en cours'
         };
-      default: 
+      case 'non_parti':
+      default:
+        // Si une date de départ est prévue mais future
+        if (charge.date_depart) {
+          const departDate = new Date(charge.date_depart);
+          const now = new Date();
+          if (departDate > now) {
+            return { 
+              color: 'bg-blue-500', 
+              text: 'Départ prévu'
+            };
+          }
+        }
+        // Sinon, statut par défaut
         return { 
           color: 'bg-red-500', 
           text: 'En préparation'

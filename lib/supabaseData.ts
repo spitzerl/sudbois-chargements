@@ -123,14 +123,26 @@ export async function fetchChargements() {
     };
   }));
   
-  // Calculer le statut de chaque chargement
+  // Calculer le statut de chaque chargement en fonction des dates
   const chargementsWithStatus = enrichedChargements.map(charge => {
     let status: 'non_parti' | 'en_cours' | 'livre' = 'non_parti';
+    const now = new Date();
     
-    if (charge.date_arrivee) {
+    // Si la date d'arrivée est définie et qu'elle est passée, le chargement est considéré comme livré
+    if (charge.date_arrivee && new Date(charge.date_arrivee) <= now) {
       status = 'livre';
-    } else if (charge.date_depart) {
-      status = 'en_cours';
+    } 
+    // Si la date de départ est définie
+    else if (charge.date_depart) {
+      const departDate = new Date(charge.date_depart);
+      // Si la date de départ est passée, le chargement est en cours d'acheminement
+      if (departDate <= now) {
+        status = 'en_cours';
+      } 
+      // Si la date de départ est future, on le garde comme non_parti
+      else {
+        status = 'non_parti';
+      }
     }
     
     const result = {
