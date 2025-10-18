@@ -113,7 +113,6 @@ function ChargementCard({ charge, onUpdate, onDelete }: {
       }
     };
     
-    // Ne charger les données que si le chargement est en modification
     if (isModifying) {
       loadData();
     }
@@ -212,7 +211,6 @@ function ChargementCard({ charge, onUpdate, onDelete }: {
         quantite: p.quantite
       }));
       
-      // Mettre à jour le chargement et ses produits
       await updateChargement(charge.id, updates);
       await updateChargementProduits(charge.id, produitsToUpdate);
       
@@ -477,13 +475,11 @@ function ChargementCard({ charge, onUpdate, onDelete }: {
                 </div>
               </div>
 
-              {/* Formulaire de modification */}
               {isModifying && (
                 <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-100 dark:border-blue-800/40 shadow-sm">
                   <h3 className="text-lg font-semibold mb-3 text-blue-800 dark:text-blue-300">Modifier le chargement</h3>
                   
                   <form onSubmit={handleSubmitModification} className="space-y-6">
-                    {/* Informations générales */}
                     <div>
                       <h4 className="font-medium mb-2">Informations générales</h4>
                       <div className="grid gap-4">
@@ -606,7 +602,7 @@ function ChargementCard({ charge, onUpdate, onDelete }: {
                         </div>
                       </div>
                       
-                      {/* Liste des produits modifiés */}
+
                       {modifiedProduits.length > 0 ? (
                         <div className="border rounded-lg overflow-hidden">
                           <table className="w-full">

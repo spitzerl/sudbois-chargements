@@ -50,7 +50,6 @@ export async function fetchProduits() {
 }
 
 export async function fetchChargements() {
-  // Récupérer d'abord les chargements de base
   const { data: chargementsData, error: chargementsError } = await supabase
     .from('chargements')
     .select(`
@@ -66,51 +65,40 @@ export async function fetchChargements() {
   
   if (chargementsError) throw chargementsError;
   
-  // Enrichir les données avec les informations complémentaires
   const enrichedChargements = await Promise.all(chargementsData.map(async (charge) => {
-    // Récupérer le client
     const { data: clientData } = await supabase
       .from('clients')
       .select('nom')
       .eq('id', charge.client_id)
       .single();
     
-    // Récupérer le transporteur
     const { data: transporteurData } = await supabase
       .from('transporteurs')
       .select('nom')
       .eq('id', charge.transporteur_id)
       .single();
     
-    // Récupérer les produits associés et leurs informations en une seule requête
     const { data: chargementProduitsData } = await supabase
       .from('chargement_produits')
       .select('id, produit_id, quantite')
       .eq('chargement_id', charge.id);
     
-    // Définir un type explicite pour les produits enrichis
     let produitsEnriched: ProduitChargement[] = [];
     
     if (chargementProduitsData && chargementProduitsData.length > 0) {
-      console.log(`Traitement de ${chargementProduitsData.length} produits pour le chargement ${charge.id}`);
-      
-      // Pour chaque produit associé, récupérer les détails du produit
       produitsEnriched = await Promise.all(chargementProduitsData.map(async (produit) => {
-        console.log(`Récupération du produit ${produit.produit_id} pour le chargement ${charge.id}`);
         const { data: produitInfo } = await supabase
           .from('produits')
           .select('id, nom')
           .eq('id', produit.produit_id)
           .single();
         
-        console.log(`Infos produit ${produit.produit_id}:`, produitInfo);
-        
         return {
           id: produit.id,
           chargement_id: charge.id,
           produit_id: produit.produit_id,
           quantite: produit.quantite,
-          produits: produitInfo // Stockez directement l'objet produit pour simplifier
+          produits: produitInfo
         } as ProduitChargement;
       }));
     }
@@ -123,23 +111,18 @@ export async function fetchChargements() {
     };
   }));
   
-  // Calculer le statut de chaque chargement en fonction des dates
   const chargementsWithStatus = enrichedChargements.map(charge => {
     let status: 'non_parti' | 'en_cours' | 'livre' = 'non_parti';
     const now = new Date();
     
-    // Si la date d'arrivée est définie et qu'elle est passée, le chargement est considéré comme livré
     if (charge.date_arrivee && new Date(charge.date_arrivee) <= now) {
       status = 'livre';
     } 
-    // Si la date de départ est définie
     else if (charge.date_depart) {
       const departDate = new Date(charge.date_depart);
-      // Si la date de départ est passée, le chargement est en cours d'acheminement
       if (departDate <= now) {
         status = 'en_cours';
       } 
-      // Si la date de départ est future, on le garde comme non_parti
       else {
         status = 'non_parti';
       }
@@ -150,16 +133,7 @@ export async function fetchChargements() {
       status
     };
     
-    // Déboguer les produits de chaque chargement
-    console.log(`Chargement ${result.id} a ${result.produits?.length || 0} produits:`, 
-                result.produits?.map(p => ({ 
-                  id: p.id,
-                  produit_id: p.produit_id,
-                  quantite: p.quantite,
-                  produits_info: Array.isArray(p.produits) ? 
-                    `tableau de ${p.produits.length} éléments` : 
-                    (p.produits ? 'objet unique' : 'absent')
-                })));
+
     
     return result;
   });
@@ -231,15 +205,12 @@ export async function updateChargementProduits(
   id: string,
   produits: { produitId: string, quantite: number }[]
 ) {
-  // 1. Supprimer tous les produits existants associés au chargement
   const { error: deleteError } = await supabase
     .from('chargement_produits')
     .delete()
     .eq('chargement_id', id);
   
   if (deleteError) throw deleteError;
-
-  // 2. Ajouter les nouveaux produits
   if (produits.length > 0) {
     const produitsToInsert = produits.map(p => ({
       chargement_id: id,
@@ -258,15 +229,12 @@ export async function updateChargementProduits(
 }
 
 export async function deleteChargement(id: string) {
-  // D'abord supprimer les relations produits-chargements
   const { error: produitError } = await supabase
     .from('chargement_produits')
     .delete()
     .eq('chargement_id', id);
   
   if (produitError) throw produitError;
-  
-  // Ensuite supprimer le chargement
   const { error } = await supabase
     .from('chargements')
     .delete()
