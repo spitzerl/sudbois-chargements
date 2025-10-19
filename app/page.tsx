@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
-import { Loader2, PlusIcon, Trash2, Eye, XCircle } from 'lucide-react'; 
+import { Loader2, PlusIcon, Trash2, Eye, XCircle } from 'lucide-react';
+import { useNotification } from '@/components/ui/notification'; 
 
 import {
     fetchChargements,
@@ -10,6 +11,9 @@ import {
     fetchTransporteurs,
     fetchProduits,
     createChargement,
+    deleteChargement,
+    updateChargement,
+    updateChargementProduits,
     Chargement,
     Client,
     Transporteur,
@@ -179,12 +183,19 @@ function ChargementCard({ charge, onView }: {
 }
 
 
-// Formulaire de création de chargement
-function NewChargementForm({ onChargementCreated, clients, transporteurs }: { 
+// Formulaire de création/modification de chargement
+function NewChargementForm({ 
+    onChargementCreated, 
+    clients, 
+    transporteurs,
+    chargementToEdit = null,
+}: { 
     onChargementCreated: () => void, 
     clients: Client[], 
-    transporteurs: Transporteur[] 
+    transporteurs: Transporteur[],
+    chargementToEdit?: Chargement | null
 }) {
+  const { showNotification } = useNotification();
   const [selectedClient, setSelectedClient] = useState('');
   const [selectedTransporteur, setSelectedTransporteur] = useState('');
   const [nomChargement, setNomChargement] = useState('');
@@ -210,6 +221,45 @@ function NewChargementForm({ onChargementCreated, clients, transporteurs }: {
 
     loadProduits();
   }, []);
+
+  // Pré-remplir le formulaire si on est en mode édition
+  useEffect(() => {
+    if (chargementToEdit) {
+      setSelectedClient(chargementToEdit.client_id);
+      setSelectedTransporteur(chargementToEdit.transporteur_id);
+      setNomChargement(chargementToEdit.nom || '');
+      setDateDepart(chargementToEdit.date_depart 
+        ? new Date(chargementToEdit.date_depart).toISOString().split('T')[0] 
+        : '');
+      setDateArrivee(chargementToEdit.date_arrivee 
+        ? new Date(chargementToEdit.date_arrivee).toISOString().split('T')[0] 
+        : '');
+      
+      // Pré-remplir les produits si disponibles
+      if (chargementToEdit.produits && chargementToEdit.produits.length > 0) {
+        const formattedProduits = chargementToEdit.produits.map(p => {
+          // Récupérer le nom du produit
+          let produitNom = '';
+          if (p.produits) {
+            if (Array.isArray(p.produits) && p.produits.length > 0) {
+              produitNom = p.produits[0].nom;
+            } else if (typeof p.produits === 'object' && 'nom' in p.produits) {
+              produitNom = (p.produits as { nom: string }).nom;
+            }
+          }
+          
+          return {
+            id: p.id,
+            produitId: p.produit_id,
+            nom: produitNom,
+            quantite: p.quantite
+          };
+        });
+        
+        setProduits(formattedProduits);
+      }
+    }
+  }, [chargementToEdit]);
 
   const handleAddProduit = () => {
     if (!selectedProduit || quantiteProduit <= 0) {
@@ -258,16 +308,40 @@ function NewChargementForm({ onChargementCreated, clients, transporteurs }: {
         quantite: p.quantite
       }));
 
-      await createChargement(
-        selectedClient, 
-        selectedTransporteur, 
-        nomChargement.trim(),
-        dateDepart || undefined,
-        dateArrivee || undefined,
-        produitsToSend.length > 0 ? produitsToSend : undefined
-      );
-      
-      alert('Chargement créé avec succès !');
+      if (chargementToEdit) {
+        // Mode modification
+        const updates = {
+          nom: nomChargement.trim(),
+          client_id: selectedClient,
+          transporteur_id: selectedTransporteur,
+          date_depart: dateDepart || null,
+          date_arrivee: dateArrivee || null
+        };
+
+        // Mettre à jour les informations de base du chargement
+        await updateChargement(chargementToEdit.id, updates);
+
+        // Mettre à jour les produits liés au chargement
+        await updateChargementProduits(chargementToEdit.id, produitsToSend);
+        
+        // Notification via le hook local
+        showNotification('Chargement modifié avec succès !', 'success');
+      } else {
+        // Mode création
+        await createChargement(
+          selectedClient, 
+          selectedTransporteur, 
+          nomChargement.trim(),
+          dateDepart || undefined,
+          dateArrivee || undefined,
+          produitsToSend.length > 0 ? produitsToSend : undefined
+        );
+        
+        // Notification via le hook local
+        showNotification('Chargement créé avec succès !', 'success');
+      }
+
+      // Réinitialisation du formulaire
       setSelectedClient('');
       setSelectedTransporteur('');
       setNomChargement('');
@@ -277,7 +351,9 @@ function NewChargementForm({ onChargementCreated, clients, transporteurs }: {
       onChargementCreated();
       
     } catch (err: unknown) {
-      let errorMessage = 'Échec de la création du chargement.';
+      let errorMessage = chargementToEdit ? 
+        'Échec de la modification du chargement.' : 
+        'Échec de la création du chargement.';
       
       if (err instanceof Error) {
         errorMessage = err.message;
@@ -506,6 +582,7 @@ export default function ChargementsDashboard() {
   const [transporteurs, setTransporteurs] = useState<Transporteur[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { showNotification, notificationElements } = useNotification();
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOption, setSortOption] = useState<'date_creation' | 'date_depart' | 'date_arrivee' | 'status' | 'client' | 'transporteur'>('date_creation');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -516,6 +593,7 @@ export default function ChargementsDashboard() {
   const [viewMode, setViewMode] = useState<'list' | 'card'>('list');
   const [selectedChargement, setSelectedChargement] = useState<Chargement | null>(null);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [newChargementDialogOpen, setNewChargementDialogOpen] = useState(false);
 
   const sortAndFilterChargements = useCallback(() => {
     let result = [...chargements];
@@ -595,6 +673,22 @@ export default function ChargementsDashboard() {
   useEffect(() => {
     sortAndFilterChargements();
   }, [sortAndFilterChargements]);
+  
+  // Écouter les événements de notification depuis les composants enfants
+  useEffect(() => {
+    const handleNotification = (event: Event) => {
+      const customEvent = event as CustomEvent<{message: string, type: 'success' | 'error' | 'info'}>;
+      if (customEvent.detail) {
+        showNotification(customEvent.detail.message, customEvent.detail.type);
+      }
+    };
+    
+    window.addEventListener('showNotification', handleNotification);
+    
+    return () => {
+      window.removeEventListener('showNotification', handleNotification);
+    };
+  }, [showNotification]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -626,8 +720,33 @@ export default function ChargementsDashboard() {
   }, []);
 
   // Suppression d'un chargement
-  const handleDeleteChargement = (id: string) => {
-    setChargements((prevChargements) => prevChargements.filter(c => c.id !== id));
+  const handleDeleteChargement = async (id: string) => {
+    try {
+      setLoading(true);
+      // Appel à la fonction de suppression dans Supabase
+      await deleteChargement(id);
+      // Mise à jour de l'état local après suppression réussie
+      setChargements((prevChargements) => prevChargements.filter(c => c.id !== id));
+      
+      // Notification de succès
+      showNotification("Chargement supprimé avec succès", "success");
+      
+      // Fermer la fenêtre de détails si elle était ouverte
+      if (detailsDialogOpen) {
+        setDetailsDialogOpen(false);
+        setSelectedChargement(null);
+      }
+      
+      // Recharger les données pour être sûr que la liste est à jour
+      loadData();
+      
+    } catch (error) {
+      console.error("Erreur lors de la suppression du chargement:", error);
+      setError("Échec de la suppression du chargement");
+      showNotification("Échec de la suppression du chargement", "error");
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Fonction pour afficher les détails d'un chargement
@@ -642,15 +761,29 @@ export default function ChargementsDashboard() {
     setSelectedChargement(null);
   };
   
-  // Fonction pour éditer un chargement (à implémenter avec modal dans le futur)
+  // Fonction pour éditer un chargement
   const handleEditChargement = (chargement: Chargement) => {
-    // Pour l'instant, on ferme simplement la fenêtre de détails
-    setDetailsDialogOpen(false);
-    setSelectedChargement(null);
+    // On vérifie que le chargement peut être modifié
+    if (chargement.status && chargement.status !== 'non_parti') {
+      showNotification("Ce chargement ne peut plus être modifié car il a déjà été expédié ou livré.", "error");
+      return;
+    }
     
-    // Ici, on pourrait ouvrir une fenêtre modale d'édition
-    // ou naviguer vers une page d'édition
-    alert(`Fonctionnalité d'édition pour le chargement ${chargement.id}`);
+    // On ferme d'abord la fenêtre de détails
+    setDetailsDialogOpen(false);
+    
+    // On définit le chargement à modifier
+    setSelectedChargement(chargement);
+    
+    // On ouvre le dialogue de création/édition avec le chargement sélectionné
+    setTimeout(() => {
+      // Utiliser un petit délai pour éviter des problèmes potentiels avec l'état du dialogue
+      setNewChargementDialogOpen(true);
+    }, 100);
+    
+  // Ici, on pourrait ouvrir une fenêtre modale d'édition
+  // ou naviguer vers une page d'édition
+  showNotification(`Fonctionnalité d'édition pour le chargement ${chargement.id}`, 'info');
     
     // Après l'édition, on recharge les données
     loadData();
@@ -675,6 +808,8 @@ export default function ChargementsDashboard() {
 
   return (
     <div className="font-sans min-h-screen px-2 py-3 sm:px-4 sm:py-4 max-w-full mx-auto">
+      {/* Notifications (bandeaux en bas) */}
+      {notificationElements}
       <main className="flex flex-col gap-3">
         
         {/* En-tête et bouton de création */}
@@ -682,21 +817,30 @@ export default function ChargementsDashboard() {
           <div className="flex flex-row justify-between items-center mb-2">
             <h2 className="text-xl font-semibold">Liste des chargements</h2>
             <div className="flex items-center gap-2">
-              <Dialog>
+              <Dialog open={newChargementDialogOpen} onOpenChange={setNewChargementDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button size="sm">
+                  <Button size="sm" onClick={() => {
+                    setSelectedChargement(null);  // Réinitialiser le chargement sélectionné pour créer un nouveau
+                    setNewChargementDialogOpen(true);
+                  }}>
                     <PlusIcon className="size-4 mr-1" />
                     Créer
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-3xl">
                   <DialogHeader>
-                    <DialogTitle>Ajouter un nouveau chargement</DialogTitle>
+                    <DialogTitle>
+                      {selectedChargement ? "Modifier un chargement" : "Ajouter un nouveau chargement"}
+                    </DialogTitle>
                   </DialogHeader>
                   <NewChargementForm 
-                    onChargementCreated={loadData}
+                    onChargementCreated={() => {
+                      loadData();
+                      setNewChargementDialogOpen(false);
+                    }}
                     clients={clients}
                     transporteurs={transporteurs}
+                    chargementToEdit={selectedChargement}
                   />
                 </DialogContent>
               </Dialog>
