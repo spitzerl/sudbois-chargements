@@ -38,9 +38,10 @@ export function ChargementDetails({ chargement, isOpen, onClose, onEdit, onDelet
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl">
-        <DialogHeader>
+      <DialogContent className="max-w-3xl overflow-y-auto">
+        <DialogHeader className="sticky top-0 bg-background z-10 pb-2 shadow-sm">
           <DialogTitle>{chargement.nom || 'Détails du chargement'}</DialogTitle>
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-b from-transparent to-gray-100"></div>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
@@ -156,7 +157,8 @@ export function ChargementDetails({ chargement, isOpen, onClose, onEdit, onDelet
           </div>
           
           {/* Boutons d'action */}
-          <div className="bg-gray-50 dark:bg-gray-900/20 p-4 rounded-lg border border-gray-100 dark:border-gray-800/40 shadow-sm mt-6">
+          <div className="bg-gray-50 dark:bg-gray-900/20 p-4 rounded-lg border border-gray-100 dark:border-gray-800/40 shadow-sm mt-6 sticky bottom-0">
+            <div className="absolute top-0 left-0 right-0 h-4 bg-gradient-to-t from-transparent to-gray-100/50"></div>
             <h3 className="text-lg font-semibold mb-3 text-gray-800 dark:text-gray-300">Actions</h3>
             
             {!canModify && (
