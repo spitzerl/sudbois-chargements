@@ -631,9 +631,9 @@ export default function ChargementsDashboard() {
           
           {/* Recherche et tri */}
           <div className="border rounded-md p-2 bg-card mb-1">
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2">
               {/* Section recherche */}
-              <div className="flex-grow min-w-[200px] border-r pr-2">
+              <div className="flex-grow min-w-[200px] sm:border-r sm:pr-2 pb-2 sm:pb-0 border-b sm:border-b-0">
                 <div className="text-xs font-semibold mb-1">Recherche</div>
                 <Input
                   placeholder="Rechercher par nom ou ID..."
@@ -644,7 +644,7 @@ export default function ChargementsDashboard() {
               </div>
               
               {/* Section tri */}
-              <div className="flex-shrink-0 border-r pr-2">
+              <div className="flex-shrink-0 sm:border-r sm:pr-2 pb-2 sm:pb-0 border-b sm:border-b-0">
                 <div className="text-xs font-semibold mb-1">Tri</div>
                 <div className="flex items-center gap-1">
                   <Select 
@@ -675,19 +675,23 @@ export default function ChargementsDashboard() {
               </div>
               
               {/* Section affichage */}
-              <div className="flex-shrink-0">
-                <div className="text-xs font-semibold mb-1">Affichage</div>
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowFilters(!showFilters)}
-                    className="h-8 text-xs"
-                  >
-                    {showFilters ? 'Masquer filtres' : 'Afficher filtres'}
-                  </Button>
-                  
-                  <ViewToggle currentView={viewMode} onViewChange={setViewMode} />
+              <div className="flex-shrink-0 flex items-center justify-between">
+                <div className="flex flex-col">
+                  <div className="text-xs font-semibold mb-1">Affichage</div>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowFilters(!showFilters)}
+                      className="h-8 text-xs"
+                    >
+                      {showFilters ? 'Masquer filtres' : 'Afficher filtres'}
+                    </Button>
+                    
+                    <div className="hidden sm:block">
+                      <ViewToggle currentView={viewMode} onViewChange={setViewMode} />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -841,24 +845,37 @@ export default function ChargementsDashboard() {
               <div className="text-center bg-muted/20 rounded-lg py-6">
                 <p className="text-muted-foreground">Aucun chargement trouvé.</p>
               </div>
-            ) : viewMode === 'list' ? (
-              <div className="w-full overflow-x-auto">
-                <ChargementList
-                  chargements={filteredChargements}
-                  onView={handleViewChargement}
-                  onUpdate={loadData}
-                />
-              </div>
             ) : (
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {filteredChargements.map((charge) => (
-                  <ChargementCard 
-                    key={charge.id} 
-                    charge={charge}
-                    onView={handleViewChargement} 
-                  />
-                ))}
-              </div>
+              <>
+                {/* Vue liste - visible uniquement sur desktop si sélectionnée */}
+                {viewMode === 'list' && (
+                  <div className="w-full overflow-x-auto hidden sm:block transition-all duration-300 ease-in-out">
+                    <ChargementList
+                      chargements={filteredChargements}
+                      onView={handleViewChargement}
+                      onUpdate={loadData}
+                    />
+                  </div>
+                )}
+                
+                {/* Message d'info sur le mode mobile - visible uniquement sur mobile */}
+                {viewMode === 'list' && (
+                  <div className="sm:hidden bg-blue-50 text-blue-800 p-2 rounded-md mb-2 text-xs text-center animate-pulse">
+                    Affichage en mode carte sur mobile pour une meilleure expérience
+                  </div>
+                )}
+                
+                {/* Vue carte - toujours visible sur mobile, visible sur desktop si sélectionnée */}
+                <div className={`grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 ${viewMode === 'list' ? 'sm:hidden' : ''} transition-all duration-300 ease-in-out`}>
+                  {filteredChargements.map((charge) => (
+                    <ChargementCard 
+                      key={charge.id} 
+                      charge={charge}
+                      onView={handleViewChargement} 
+                    />
+                  ))}
+                </div>
+              </>
             )}
             
             <ChargementDetails
