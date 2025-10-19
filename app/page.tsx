@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
-import { Loader2, PlusIcon, Trash2, Eye } from 'lucide-react'; 
+import { Loader2, PlusIcon, Trash2, Eye, XCircle } from 'lucide-react'; 
 
 import {
     fetchChargements,
@@ -507,7 +507,7 @@ export default function ChargementsDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortOption, setSortOption] = useState<'date' | 'status' | 'client' | 'transporteur'>('date');
+  const [sortOption, setSortOption] = useState<'date_creation' | 'date_depart' | 'date_arrivee' | 'status' | 'client' | 'transporteur'>('date_creation');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [filterStatus, setFilterStatus] = useState<'all' | 'non_parti' | 'en_cours' | 'livre'>('all');
   const [filterClient, setFilterClient] = useState<string>('all');
@@ -541,9 +541,19 @@ export default function ChargementsDashboard() {
     }
     
     result.sort((a, b) => {
-      if (sortOption === 'date') {
+      if (sortOption === 'date_creation') {
         const dateA = new Date(a.date_creation).getTime();
         const dateB = new Date(b.date_creation).getTime();
+        return sortDirection === 'asc' ? dateA - dateB : dateB - dateA;
+      } else if (sortOption === 'date_depart') {
+        // Gérer les cas où date_depart peut être null
+        const dateA = a.date_depart ? new Date(a.date_depart).getTime() : 0;
+        const dateB = b.date_depart ? new Date(b.date_depart).getTime() : 0;
+        return sortDirection === 'asc' ? dateA - dateB : dateB - dateA;
+      } else if (sortOption === 'date_arrivee') {
+        // Gérer les cas où date_arrivee peut être null
+        const dateA = a.date_arrivee ? new Date(a.date_arrivee).getTime() : 0;
+        const dateB = b.date_arrivee ? new Date(b.date_arrivee).getTime() : 0;
         return sortDirection === 'asc' ? dateA - dateB : dateB - dateA;
       } else if (sortOption === 'status') {
         // Tri par statut avec priorité: non_parti > en_cours > livre
@@ -651,6 +661,14 @@ export default function ChargementsDashboard() {
     setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
   };
 
+  // Réinitialisation de tous les filtres
+  const handleResetAllFilters = () => {
+    setFilterStatus('all');
+    setFilterClient('all');
+    setFilterTransporteur('all');
+    setSearchTerm('');
+  };
+
   useEffect(() => {
     loadData();
   }, [loadData]); 
@@ -704,14 +722,16 @@ export default function ChargementsDashboard() {
                 <div className="text-xs font-semibold mb-1">Tri</div>
                 <div className="flex items-center gap-1">
                   <Select 
-                    onValueChange={(value) => setSortOption(value as 'date' | 'status' | 'client' | 'transporteur')} 
+                    onValueChange={(value) => setSortOption(value as 'date_creation' | 'date_depart' | 'date_arrivee' | 'status' | 'client' | 'transporteur')} 
                     value={sortOption}
                   >
-                    <SelectTrigger className="h-8 min-w-[110px] text-xs">
+                    <SelectTrigger className="h-8 min-w-[130px] text-xs">
                       <SelectValue placeholder="Trier par" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="date">Date</SelectItem>
+                      <SelectItem value="date_creation">Date de création</SelectItem>
+                      <SelectItem value="date_depart">Date d&apos;expédition</SelectItem>
+                      <SelectItem value="date_arrivee">Date de livraison</SelectItem>
                       <SelectItem value="status">Statut</SelectItem>
                       <SelectItem value="client">Client</SelectItem>
                       <SelectItem value="transporteur">Transporteur</SelectItem>
@@ -894,6 +914,19 @@ export default function ChargementsDashboard() {
                     {transporteurs.find(t => t.id === filterTransporteur)?.nom || ''}
                   </span>
                 </div>
+              )}
+
+              {/* Bouton pour réinitialiser tous les filtres */}
+              {(filterStatus !== 'all' || filterClient !== 'all' || filterTransporteur !== 'all' || searchTerm) && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleResetAllFilters}
+                  className="px-2 py-1 h-7 text-xs text-red-500 hover:bg-red-100 hover:text-red-700 border-red-200 flex items-center"
+                >
+                  <XCircle className="size-3.5 mr-1" />
+                  Effacer les filtres
+                </Button>
               )}
             </div>
             
