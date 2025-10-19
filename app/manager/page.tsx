@@ -7,6 +7,7 @@ import {
   fetchClients, 
   fetchTransporteurs, 
   fetchProduits,
+  fetchChargements,
   createClient,
   updateClient,
   deleteClient,
@@ -18,8 +19,12 @@ import {
   deleteProduit,
   Client,
   Transporteur,
+  Chargement,
   Produit
 } from '@/lib/supabaseData';
+import { ProduitChargement } from '@/lib/supabaseData';
+
+import { useNotification } from '@/components/ui/notification';
 
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -75,8 +80,11 @@ export default function ManagerPage() {
 // Gestion des clients
 function ClientManager() {
   const [clients, setClients] = useState<Client[]>([]);
+  const { showNotification } = useNotification();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [relatedChargements, setRelatedChargements] = useState<Chargement[]>([]);
+  const [relatedDialogOpen, setRelatedDialogOpen] = useState(false);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [currentClient, setCurrentClient] = useState<{id: string, nom: string, adresse: string}>({ id: '', nom: '', adresse: '' });
@@ -156,9 +164,31 @@ function ClientManager() {
     try {
       await deleteClient(id);
       await loadClients();
+      showNotification('Client supprimé avec succès', 'success');
     } catch (error) {
       console.error('Erreur lors de la suppression du client:', error);
-      setError('Impossible de supprimer le client');
+      const rawMessage = error && typeof error === 'object' && 'message' in error ? String((error as Record<string, unknown>).message) : String(error) || 'Impossible de supprimer le client';
+
+      // Détecter une erreur de contrainte FK et afficher un message utilisateur clair en français
+      const isFkError = rawMessage.includes('violates foreign key constraint') || rawMessage.toLowerCase().includes('foreign key');
+      if (isFkError) {
+        const fkMessage = "Impossible de supprimer cet élément car il est lié à un ou plusieurs chargements. Veuillez d'abord annuler ou supprimer ces chargements.";
+        setError(fkMessage);
+        showNotification(fkMessage, 'error');
+
+        try {
+          const allCharges = await fetchChargements();
+          const related = allCharges.filter(c => c.client_id === id);
+          setRelatedChargements(related);
+          setRelatedDialogOpen(true);
+        } catch (e) {
+          console.error('Erreur lors de la récupération des chargements liés:', e);
+        }
+      } else {
+        const userMessage = `Impossible de supprimer le client : ${rawMessage}`;
+        setError(userMessage);
+        showNotification(userMessage, 'error');
+      }
     } finally {
       setIsDeleting(false);
     }
@@ -218,6 +248,32 @@ function ClientManager() {
             </div>
           </DialogContent>
         </Dialog>
+
+          {/* Dialog affichant les chargements empêchant la suppression */}
+          <Dialog open={relatedDialogOpen} onOpenChange={setRelatedDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Chargements liés</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">Impossible de supprimer ce client car il est utilisé par les chargements suivants :</p>
+                {relatedChargements.length === 0 ? (
+                  <p>Aucun chargement trouvé.</p>
+                ) : (
+                  <ul className="list-disc pl-5">
+                    {relatedChargements.map((c) => (
+                      <li key={c.id}>
+                        {c.nom || `ID: ${c.id}`} - statut: {c.status || 'non_parti'}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="flex justify-end mt-4">
+                  <Button onClick={() => setRelatedDialogOpen(false)}>Fermer</Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
       </div>
 
       {loading ? (
@@ -317,6 +373,30 @@ function ClientManager() {
           </div>
         </DialogContent>
       </Dialog>
+      {/* Dialog affichant les chargements empêchant la suppression */}
+      <Dialog open={relatedDialogOpen} onOpenChange={setRelatedDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Chargements liés</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {relatedChargements.length === 0 ? (
+              <p>Aucun chargement trouvé.</p>
+            ) : (
+              <ul className="list-disc pl-5">
+                {relatedChargements.map((c) => (
+                  <li key={c.id}>
+                    {c.nom || `ID: ${c.id}`} - statut: {c.status || 'non_parti'}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="flex justify-end mt-4">
+              <Button onClick={() => setRelatedDialogOpen(false)}>Fermer</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -324,8 +404,11 @@ function ClientManager() {
 // Gestion des transporteurs
 function TransporteurManager() {
   const [transporteurs, setTransporteurs] = useState<Transporteur[]>([]);
+  const { showNotification } = useNotification();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [relatedChargements, setRelatedChargements] = useState<Chargement[]>([]);
+  const [relatedDialogOpen, setRelatedDialogOpen] = useState(false);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [currentTransporteur, setCurrentTransporteur] = useState<{id: string, nom: string, contact: string}>({ id: '', nom: '', contact: '' });
@@ -405,9 +488,29 @@ function TransporteurManager() {
     try {
       await deleteTransporteur(id);
       await loadTransporteurs();
+      showNotification('Transporteur supprimé avec succès', 'success');
     } catch (error) {
       console.error('Erreur lors de la suppression du transporteur:', error);
-      setError('Impossible de supprimer le transporteur');
+      const rawMessage = error && typeof error === 'object' && 'message' in error ? String((error as Record<string, unknown>).message) : String(error) || 'Impossible de supprimer le transporteur';
+      const isFkError = rawMessage.includes('violates foreign key constraint') || rawMessage.toLowerCase().includes('foreign key');
+      if (isFkError) {
+        const fkMessage = "Impossible de supprimer cet élément car il est lié à un ou plusieurs chargements. Veuillez d'abord annuler ou supprimer ces chargements.";
+        setError(fkMessage);
+        showNotification(fkMessage, 'error');
+
+        try {
+          const allCharges = await fetchChargements();
+          const related = allCharges.filter(c => c.transporteur_id === id);
+          setRelatedChargements(related);
+          setRelatedDialogOpen(true);
+        } catch (e) {
+          console.error('Erreur lors de la récupération des chargements liés:', e);
+        }
+      } else {
+        const userMessage = `Impossible de supprimer le transporteur : ${rawMessage}`;
+        setError(userMessage);
+        showNotification(userMessage, 'error');
+      }
     } finally {
       setIsDeleting(false);
     }
@@ -573,8 +676,11 @@ function TransporteurManager() {
 // Gestion des produits
 function ProduitManager() {
   const [produits, setProduits] = useState<Produit[]>([]);
+  const { showNotification } = useNotification();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [relatedChargements, setRelatedChargements] = useState<Chargement[]>([]);
+  const [relatedDialogOpen, setRelatedDialogOpen] = useState(false);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [currentProduit, setCurrentProduit] = useState<{id: string, nom: string, description: string}>({ id: '', nom: '', description: '' });
@@ -654,9 +760,32 @@ function ProduitManager() {
     try {
       await deleteProduit(id);
       await loadProduits();
+      showNotification('Produit supprimé avec succès', 'success');
     } catch (error) {
       console.error('Erreur lors de la suppression du produit:', error);
-      setError('Impossible de supprimer le produit');
+      const rawMessage = error && typeof error === 'object' && 'message' in error ? String((error as Record<string, unknown>).message) : String(error) || 'Impossible de supprimer le produit';
+      const isFkError = rawMessage.includes('violates foreign key constraint') || rawMessage.toLowerCase().includes('foreign key');
+      if (isFkError) {
+        const fkMessage = "Impossible de supprimer cet élément car il est lié à un ou plusieurs chargements. Veuillez d'abord annuler ou supprimer ces chargements.";
+        setError(fkMessage);
+        showNotification(fkMessage, 'error');
+
+        try {
+          const allCharges = await fetchChargements();
+          // Filtrer les chargements qui contiennent le produit
+          const related = allCharges.filter(c => {
+            return Array.isArray(c.produits) && c.produits.some((p) => (p as ProduitChargement).produit_id === id);
+          });
+          setRelatedChargements(related);
+          setRelatedDialogOpen(true);
+        } catch (e) {
+          console.error('Erreur lors de la récupération des chargements liés:', e);
+        }
+      } else {
+        const userMessage = `Impossible de supprimer le produit : ${rawMessage}`;
+        setError(userMessage);
+        showNotification(userMessage, 'error');
+      }
     } finally {
       setIsDeleting(false);
     }
@@ -818,6 +947,33 @@ function ProduitManager() {
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Enregistrer
               </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog affichant les chargements empêchant la suppression */}
+      <Dialog open={relatedDialogOpen} onOpenChange={setRelatedDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Chargements liés</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">Impossible de supprimer ce transporteur car il est utilisé par les chargements suivants :</p>
+            <p className="text-sm text-muted-foreground">Impossible de supprimer ce produit car il est utilisé par les chargements suivants :</p>
+            {relatedChargements.length === 0 ? (
+              <p>Aucun chargement trouvé.</p>
+            ) : (
+              <ul className="list-disc pl-5">
+                {relatedChargements.map((c) => (
+                  <li key={c.id}>
+                    {c.nom || `ID: ${c.id}`} - statut: {c.status || 'non_parti'}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="flex justify-end mt-4">
+              <Button onClick={() => setRelatedDialogOpen(false)}>Fermer</Button>
             </div>
           </div>
         </DialogContent>
