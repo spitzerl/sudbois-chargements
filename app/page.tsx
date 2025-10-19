@@ -906,13 +906,6 @@ export default function ChargementsDashboard() {
                   </div>
                 )}
                 
-                {/* Message d'info sur le mode mobile - visible uniquement sur mobile */}
-                {viewMode === 'list' && (
-                  <div className="sm:hidden bg-blue-50 text-blue-800 p-2 rounded-md mb-2 text-xs text-center animate-pulse">
-                    Affichage en mode carte sur mobile pour une meilleure expérience
-                  </div>
-                )}
-                
                 {/* Vue carte - toujours visible sur mobile, visible sur desktop si sélectionnée */}
                 <div className={`grid gap-y-3 gap-x-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 ${viewMode === 'list' ? 'sm:hidden' : ''} transition-all duration-300 ease-in-out`}>
                   {filteredChargements.map((charge) => (
