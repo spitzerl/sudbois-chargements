@@ -72,7 +72,7 @@ function ChargementCard({ charge, onView }: {
 
   const statusInfo = getStatusInfo();
   const timeOnly = format(new Date(charge.date_creation), 'HH:mm');
-  const chargementName = charge.nom || `#${charge.id.substring(0, 6)}`;
+  const chargementName = charge.nom || `ID: ${charge.id}`;
   
   // Extrait les informations client et transporteur
   let clientName = 'Client inconnu';
@@ -129,9 +129,11 @@ function ChargementCard({ charge, onView }: {
       
       {/* Contenu détaillé - conditionnellement visible */}
       <div className={`sm:block ${isExpanded ? 'block' : 'hidden'}`}>
-        <div className="text-xs text-muted-foreground mb-1">
-          ID: {charge.id.substring(0, 10)}
-        </div>
+        {charge.nom && (
+          <div className="text-xs text-muted-foreground mb-1">
+            ID: {charge.id}
+          </div>
+        )}
         
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
           <div className="bg-muted/20 rounded-md px-2 py-1">
@@ -243,6 +245,11 @@ function NewChargementForm({ onChargementCreated, clients, transporteurs }: {
       setError('Veuillez sélectionner un client ET un transporteur.');
       return;
     }
+    
+    if (!nomChargement || nomChargement.trim() === '') {
+      setError('Veuillez saisir un nom pour le chargement.');
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -254,7 +261,7 @@ function NewChargementForm({ onChargementCreated, clients, transporteurs }: {
       await createChargement(
         selectedClient, 
         selectedTransporteur, 
-        nomChargement || undefined,
+        nomChargement.trim(),
         dateDepart || undefined,
         dateArrivee || undefined,
         produitsToSend.length > 0 ? produitsToSend : undefined
@@ -298,13 +305,14 @@ function NewChargementForm({ onChargementCreated, clients, transporteurs }: {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 items-end">
           {/* Informations de base */}
           <div className="grid gap-1.5">
-            <Label htmlFor="nom-chargement" className="text-sm">Nom (optionnel)</Label>
+            <Label htmlFor="nom-chargement" className="text-sm">Nom du chargement*</Label>
             <Input 
               id="nom-chargement"
               value={nomChargement} 
               onChange={(e) => setNomChargement(e.target.value)}
               placeholder="Nom du chargement" 
               className="h-10"
+              required
             />
           </div>
 

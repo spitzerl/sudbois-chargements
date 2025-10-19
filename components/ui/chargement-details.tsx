@@ -40,7 +40,9 @@ export function ChargementDetails({ chargement, isOpen, onClose, onEdit, onDelet
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl overflow-y-auto">
         <DialogHeader className="sticky top-0 bg-background z-10 pb-2 shadow-sm">
-          <DialogTitle>{chargement.nom || 'Détails du chargement'}</DialogTitle>
+          <DialogTitle>
+            {chargement.nom ? chargement.nom : `Chargement ID: ${chargement.id}`}
+          </DialogTitle>
           <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-b from-transparent to-gray-100"></div>
         </DialogHeader>
 
@@ -51,7 +53,9 @@ export function ChargementDetails({ chargement, isOpen, onClose, onEdit, onDelet
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm text-muted-foreground">Nom:</p>
-                <p className="font-medium">{chargement.nom || 'Sans nom'}</p>
+                <p className="font-medium">
+                  {chargement.nom || <span className="italic text-muted-foreground">Non défini</span>}
+                </p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">ID:</p>

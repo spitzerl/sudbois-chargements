@@ -78,7 +78,7 @@ export function ChargementList({ chargements, onView }: ChargementListProps) {
             return (
               <tr key={charge.id} className="hover:bg-muted/20">
                 <td className="px-3 py-2.5 text-sm">
-                  {charge.nom || <span className="text-muted-foreground italic">Sans nom</span>}
+                  {charge.nom || <span className="text-muted-foreground font-mono text-xs">ID: {charge.id}</span>}
                 </td>
                 <td className="px-3 py-2.5 text-sm">{clientName}</td>
                 <td className="px-3 py-2.5 text-sm hidden sm:table-cell">{transporteurName}</td>
