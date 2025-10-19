@@ -37,6 +37,7 @@ function ChargementCard({ charge, onView }: {
   charge: Chargement, 
   onView?: (chargement: Chargement) => void
 }) {
+  const [isExpanded, setIsExpanded] = useState(false);
   
   const getStatusInfo = () => {
     switch(charge.status) {
@@ -72,49 +73,96 @@ function ChargementCard({ charge, onView }: {
   const statusInfo = getStatusInfo();
   const timeOnly = format(new Date(charge.date_creation), 'HH:mm');
   const chargementName = charge.nom || `#${charge.id.substring(0, 6)}`;
+  
+  // Extrait les informations client et transporteur
+  let clientName = 'Client inconnu';
+  let transporteurName = 'Transporteur inconnu';
+  
+  if (Array.isArray(charge.clients) && charge.clients.length > 0) {
+    clientName = charge.clients[0].nom;
+  } 
+  else if (charge.clients && typeof charge.clients === 'object' && 'nom' in charge.clients) {
+    clientName = (charge.clients as { nom: string }).nom;
+  }
+  
+  if (Array.isArray(charge.transporteurs) && charge.transporteurs.length > 0) {
+    transporteurName = charge.transporteurs[0].nom;
+  }
+  else if (charge.transporteurs && typeof charge.transporteurs === 'object' && 'nom' in charge.transporteurs) {
+    transporteurName = (charge.transporteurs as { nom: string }).nom;
+  }
 
   return (
-    <div className="border rounded-lg p-4 space-y-2 bg-card shadow-lg transition-all hover:bg-muted/20">
-      <div className="flex justify-start mb-1">
+    <div className="border rounded-lg p-3 space-y-2 bg-card shadow-lg transition-all hover:bg-muted/20">
+      {/* En-tête de la carte - toujours visible */}
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-muted/30 text-foreground text-xs font-medium shrink-0">
           <div className={`size-2 rounded-full ${statusInfo.color}`}></div>
           <span>{statusInfo.text}</span>
         </div>
+        
+        <div className="sm:hidden">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="h-6 w-6 p-0.5"
+            onClick={() => setIsExpanded(!isExpanded)}
+          >
+            {isExpanded ? '−' : '+'}
+          </Button>
+        </div>
       </div>
       
       <div className="border-b pb-2">
-        <h3 className="text-base sm:text-lg font-semibold text-primary truncate">
+        <h3 className="text-base font-semibold text-primary truncate">
           {chargementName}
         </h3>
+        <div className="flex justify-between items-center">
+          <p className="text-xs text-muted-foreground">
+            {clientName}
+          </p>
+          <p className="text-xs text-muted-foreground hidden sm:block">
+            {transporteurName}
+          </p>
+        </div>
       </div>
       
-      <div className="text-xs text-muted-foreground">
-        ID: {charge.id.substring(0, 10)}
-      </div>
-      
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-        <div className="bg-muted/20 rounded-md px-2 py-1">
-          <span className="block text-muted-foreground">Créé le:</span>
-          {format(new Date(charge.date_creation), 'dd/MM/yyyy')} <span className="font-mono">{timeOnly}</span>
+      {/* Contenu détaillé - conditionnellement visible */}
+      <div className={`sm:block ${isExpanded ? 'block' : 'hidden'}`}>
+        <div className="text-xs text-muted-foreground mb-1">
+          ID: {charge.id.substring(0, 10)}
         </div>
         
-        <div className="bg-muted/20 rounded-md px-2 py-1">
-          <span className="block text-muted-foreground">Expédition prévue:</span>
-          {charge.date_depart 
-            ? format(new Date(charge.date_depart), 'dd/MM/yyyy') 
-            : <span className="italic text-muted-foreground">Non définie</span>}
-        </div>
-        
-        <div className="bg-muted/20 rounded-md px-2 py-1">
-          <span className="block text-muted-foreground">Livraison prévue:</span>
-          {charge.date_arrivee 
-            ? format(new Date(charge.date_arrivee), 'dd/MM/yyyy') 
-            : <span className="italic text-muted-foreground">Non définie</span>}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+          <div className="bg-muted/20 rounded-md px-2 py-1">
+            <span className="block text-muted-foreground">Créé le:</span>
+            {format(new Date(charge.date_creation), 'dd/MM/yyyy')} <span className="font-mono">{timeOnly}</span>
+          </div>
+          
+          <div className="bg-muted/20 rounded-md px-2 py-1">
+            <span className="block text-muted-foreground">Expédition prévue:</span>
+            {charge.date_depart 
+              ? format(new Date(charge.date_depart), 'dd/MM/yyyy') 
+              : <span className="italic text-muted-foreground">Non définie</span>}
+          </div>
+          
+          <div className="bg-muted/20 rounded-md px-2 py-1">
+            <span className="block text-muted-foreground">Livraison prévue:</span>
+            {charge.date_arrivee 
+              ? format(new Date(charge.date_arrivee), 'dd/MM/yyyy') 
+              : <span className="italic text-muted-foreground">Non définie</span>}
+          </div>
+          
+          {/* Informations supplémentaires pour mobile */}
+          <div className="sm:hidden bg-muted/20 rounded-md px-2 py-1">
+            <span className="block text-muted-foreground">Transporteur:</span>
+            {transporteurName}
+          </div>
         </div>
       </div>
       
-      {/* Bouton pour voir les détails */}
-      <div className="pt-2 mt-2 border-t">
+      {/* Bouton pour voir les détails - toujours visible */}
+      <div className={`pt-2 mt-2 border-t ${isExpanded ? '' : 'sm:mt-2 mt-0 sm:border-t border-t-0 sm:pt-2 pt-0'}`}>
         <Button 
           variant="outline" 
           size="sm" 
@@ -866,7 +914,7 @@ export default function ChargementsDashboard() {
                 )}
                 
                 {/* Vue carte - toujours visible sur mobile, visible sur desktop si sélectionnée */}
-                <div className={`grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 ${viewMode === 'list' ? 'sm:hidden' : ''} transition-all duration-300 ease-in-out`}>
+                <div className={`grid gap-y-3 gap-x-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 ${viewMode === 'list' ? 'sm:hidden' : ''} transition-all duration-300 ease-in-out`}>
                   {filteredChargements.map((charge) => (
                     <ChargementCard 
                       key={charge.id} 
