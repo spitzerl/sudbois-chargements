@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from 'next/navigation';
 import { cn } from "@/lib/utils";
-import { HomeIcon, Package, Truck } from "lucide-react";
+import { Package, Truck } from "lucide-react";
 
 /**
  * Barre de navigation principale de l'application
