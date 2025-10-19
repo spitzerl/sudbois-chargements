@@ -1,24 +1,23 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { format } from 'date-fns';
-import { Loader2, PlusIcon, Trash2, Eye, XCircle } from 'lucide-react'; 
+import { Loader2, PlusIcon, XCircle } from 'lucide-react';
+import { useNotification } from '@/components/ui/notification'; 
 
 import {
     fetchChargements,
     fetchClients,
     fetchTransporteurs,
-    fetchProduits,
-    createChargement,
+    deleteChargement,
     Chargement,
     Client,
     Transporteur,
-    Produit
-} from '@/lib/supabaseData';import { Button } from '@/components/ui/button';
+} from '@/lib/supabaseData';
+
+import { Button } from '@/components/ui/button';
 import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import {
   Dialog,
@@ -30,473 +29,8 @@ import {
 import { ViewToggle } from "@/components/ui/tabs/view-toggle";
 import { ChargementList } from "@/components/ui/chargement-list";
 import { ChargementDetails } from "@/components/ui/chargement-details";
-
-
-// Carte de chargement avec actions de modification et suppression
-function ChargementCard({ charge, onView }: { 
-  charge: Chargement, 
-  onView?: (chargement: Chargement) => void
-}) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  
-  const getStatusInfo = () => {
-    switch(charge.status) {
-      case 'livre': 
-        return { 
-          color: 'bg-green-500', 
-          text: 'Livré'
-        };
-      case 'en_cours': 
-        return { 
-          color: 'bg-yellow-500', 
-          text: 'Acheminement en cours'
-        };
-      case 'non_parti':
-      default:
-        if (charge.date_depart) {
-          const departDate = new Date(charge.date_depart);
-          const now = new Date();
-          if (departDate > now) {
-            return { 
-              color: 'bg-blue-500', 
-              text: 'Départ prévu'
-            };
-          }
-        }
-        return { 
-          color: 'bg-red-500', 
-          text: 'En préparation'
-        };
-    }
-  };
-
-  const statusInfo = getStatusInfo();
-  const timeOnly = format(new Date(charge.date_creation), 'HH:mm');
-  const chargementName = charge.nom || `ID: ${charge.id}`;
-  
-  // Extrait les informations client et transporteur
-  let clientName = 'Client inconnu';
-  let transporteurName = 'Transporteur inconnu';
-  
-  if (Array.isArray(charge.clients) && charge.clients.length > 0) {
-    clientName = charge.clients[0].nom;
-  } 
-  else if (charge.clients && typeof charge.clients === 'object' && 'nom' in charge.clients) {
-    clientName = (charge.clients as { nom: string }).nom;
-  }
-  
-  if (Array.isArray(charge.transporteurs) && charge.transporteurs.length > 0) {
-    transporteurName = charge.transporteurs[0].nom;
-  }
-  else if (charge.transporteurs && typeof charge.transporteurs === 'object' && 'nom' in charge.transporteurs) {
-    transporteurName = (charge.transporteurs as { nom: string }).nom;
-  }
-
-  return (
-    <div className="border rounded-lg p-3 space-y-2 bg-card shadow-lg transition-all hover:bg-muted/20">
-      {/* En-tête de la carte - toujours visible */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-muted/30 text-foreground text-xs font-medium shrink-0">
-          <div className={`size-2 rounded-full ${statusInfo.color}`}></div>
-          <span>{statusInfo.text}</span>
-        </div>
-        
-        <div className="sm:hidden">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="h-6 w-6 p-0.5"
-            onClick={() => setIsExpanded(!isExpanded)}
-          >
-            {isExpanded ? '−' : '+'}
-          </Button>
-        </div>
-      </div>
-      
-      <div className="border-b pb-2">
-        <h3 className="text-base font-semibold text-primary truncate">
-          {chargementName}
-        </h3>
-        <div className="flex justify-between items-center">
-          <p className="text-xs text-muted-foreground">
-            {clientName}
-          </p>
-          <p className="text-xs text-muted-foreground hidden sm:block">
-            {transporteurName}
-          </p>
-        </div>
-      </div>
-      
-      {/* Contenu détaillé - conditionnellement visible */}
-      <div className={`sm:block ${isExpanded ? 'block' : 'hidden'}`}>
-        {charge.nom && (
-          <div className="text-xs text-muted-foreground mb-1">
-            ID: {charge.id}
-          </div>
-        )}
-        
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-          <div className="bg-muted/20 rounded-md px-2 py-1">
-            <span className="block text-muted-foreground">Créé le:</span>
-            {format(new Date(charge.date_creation), 'dd/MM/yyyy')} <span className="font-mono">{timeOnly}</span>
-          </div>
-          
-          <div className="bg-muted/20 rounded-md px-2 py-1">
-            <span className="block text-muted-foreground">Expédition prévue:</span>
-            {charge.date_depart 
-              ? format(new Date(charge.date_depart), 'dd/MM/yyyy') 
-              : <span className="italic text-muted-foreground">Non définie</span>}
-          </div>
-          
-          <div className="bg-muted/20 rounded-md px-2 py-1">
-            <span className="block text-muted-foreground">Livraison prévue:</span>
-            {charge.date_arrivee 
-              ? format(new Date(charge.date_arrivee), 'dd/MM/yyyy') 
-              : <span className="italic text-muted-foreground">Non définie</span>}
-          </div>
-          
-          {/* Informations supplémentaires pour mobile */}
-          <div className="sm:hidden bg-muted/20 rounded-md px-2 py-1">
-            <span className="block text-muted-foreground">Transporteur:</span>
-            {transporteurName}
-          </div>
-        </div>
-      </div>
-      
-      {/* Bouton pour voir les détails - toujours visible */}
-      <div className={`pt-2 mt-2 border-t ${isExpanded ? '' : 'sm:mt-2 mt-0 sm:border-t border-t-0 sm:pt-2 pt-0'}`}>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          className="w-full"
-          onClick={() => onView && onView(charge)}
-        >
-          <Eye className="size-4 mr-2" /> Détails
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-
-// Formulaire de création de chargement
-function NewChargementForm({ onChargementCreated, clients, transporteurs }: { 
-    onChargementCreated: () => void, 
-    clients: Client[], 
-    transporteurs: Transporteur[] 
-}) {
-  const [selectedClient, setSelectedClient] = useState('');
-  const [selectedTransporteur, setSelectedTransporteur] = useState('');
-  const [nomChargement, setNomChargement] = useState('');
-  const [dateDepart, setDateDepart] = useState('');
-  const [dateArrivee, setDateArrivee] = useState('');
-  const [produits, setProduits] = useState<{id: string, produitId: string, nom: string, quantite: number}[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [availableProduits, setAvailableProduits] = useState<Produit[]>([]);
-  const [selectedProduit, setSelectedProduit] = useState('');
-  const [quantiteProduit, setQuantiteProduit] = useState(1);
-  const [showProduitForm, setShowProduitForm] = useState(false);
-
-  useEffect(() => {
-    const loadProduits = async () => {
-      try {
-        const produitsData = await fetchProduits();
-        setAvailableProduits(produitsData);
-      } catch (error) {
-        console.error('Erreur lors du chargement des produits:', error);
-      }
-    };
-
-    loadProduits();
-  }, []);
-
-  const handleAddProduit = () => {
-    if (!selectedProduit || quantiteProduit <= 0) {
-      setError('Veuillez sélectionner un produit et une quantité valide');
-      return;
-    }
-
-    const produit = availableProduits.find(p => p.id === selectedProduit);
-    if (!produit) return;
-
-    setProduits([...produits, {
-      id: `temp-${Date.now()}`,
-      produitId: produit.id,
-      nom: produit.nom,
-      quantite: quantiteProduit
-    }]);
-
-    setSelectedProduit('');
-    setQuantiteProduit(1);
-    setShowProduitForm(false);
-    setError(null);
-  };
-
-  const handleRemoveProduit = (id: string) => {
-    setProduits(produits.filter(p => p.id !== id));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-
-    if (!selectedClient || !selectedTransporteur) {
-      setError('Veuillez sélectionner un client ET un transporteur.');
-      return;
-    }
-    
-    if (!nomChargement || nomChargement.trim() === '') {
-      setError('Veuillez saisir un nom pour le chargement.');
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const produitsToSend = produits.map(p => ({
-        produitId: p.produitId,
-        quantite: p.quantite
-      }));
-
-      await createChargement(
-        selectedClient, 
-        selectedTransporteur, 
-        nomChargement.trim(),
-        dateDepart || undefined,
-        dateArrivee || undefined,
-        produitsToSend.length > 0 ? produitsToSend : undefined
-      );
-      
-      alert('Chargement créé avec succès !');
-      setSelectedClient('');
-      setSelectedTransporteur('');
-      setNomChargement('');
-      setDateDepart('');
-      setDateArrivee('');
-      setProduits([]);
-      onChargementCreated();
-      
-    } catch (err: unknown) {
-      let errorMessage = 'Échec de la création du chargement.';
-      
-      if (err instanceof Error) {
-        errorMessage = err.message;
-      } else if (typeof err === 'object' && err !== null && 'message' in err) {
-        errorMessage = (err as { message: string }).message;
-      }
-      
-      setError(errorMessage);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  if (clients.length === 0 || transporteurs.length === 0) {
-    return (
-        <div className="border p-4 rounded-lg bg-card shadow-lg flex justify-center items-center">
-            <p className="text-muted-foreground">Chargement des listes de sélection...</p>
-        </div>
-    );
-  }
-
-  return (
-    <div>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 items-end">
-          {/* Informations de base */}
-          <div className="grid gap-1.5">
-            <Label htmlFor="nom-chargement" className="text-sm">Nom du chargement*</Label>
-            <Input 
-              id="nom-chargement"
-              value={nomChargement} 
-              onChange={(e) => setNomChargement(e.target.value)}
-              placeholder="Nom du chargement" 
-              className="h-10"
-              required
-            />
-          </div>
-
-          <div className="grid gap-1.5">
-            <Label htmlFor="client-select" className="text-sm">Client*</Label>
-            <Select 
-              onValueChange={setSelectedClient} 
-              value={selectedClient} 
-              name="client_id"
-              required
-            >
-              <SelectTrigger id="client-select" className="h-10">
-                <SelectValue placeholder="Sélectionner un client" />
-              </SelectTrigger>
-              <SelectContent>
-                {clients.map((client) => (
-                  <SelectItem key={client.id} value={client.id}>
-                    {client.nom}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid gap-1.5">
-            <Label htmlFor="transporteur-select" className="text-sm">Transporteur*</Label>
-            <Select 
-              onValueChange={setSelectedTransporteur} 
-              value={selectedTransporteur} 
-              name="transporteur_id"
-              required
-            >
-              <SelectTrigger id="transporteur-select" className="h-10">
-                <SelectValue placeholder="Sélectionner un transporteur" />
-              </SelectTrigger>
-              <SelectContent>
-                {transporteurs.map((transp) => (
-                  <SelectItem key={transp.id} value={transp.id}>
-                    {transp.nom}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          
-          {/* Dates */}
-          <div className="grid gap-1.5">
-            <Label htmlFor="date-depart" className="text-sm">Date de départ</Label>
-            <Input 
-              id="date-depart" 
-              type="date" 
-              value={dateDepart} 
-              onChange={(e) => setDateDepart(e.target.value)}
-              className="h-10"
-            />
-          </div>
-          
-          <div className="grid gap-1.5">
-            <Label htmlFor="date-arrivee" className="text-sm">Date d&apos;arrivée</Label>
-            <Input 
-              id="date-arrivee" 
-              type="date" 
-              value={dateArrivee} 
-              onChange={(e) => setDateArrivee(e.target.value)}
-              className="h-10"
-            />
-          </div>
-        </div>
-
-        {/* Section Produits */}
-        <div className="border-t pt-4 mt-4">
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="text-md font-medium">Produits associés</h3>
-            <Button 
-              type="button" 
-              variant="outline" 
-              size="sm" 
-              onClick={() => setShowProduitForm(!showProduitForm)}
-            >
-              <PlusIcon className="size-4 mr-2" />
-              Ajouter un produit
-            </Button>
-          </div>
-
-          {showProduitForm && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4 p-3 bg-muted/20 rounded-lg">
-              <div className="grid gap-1.5">
-                <Label htmlFor="produit-select" className="text-sm">Produit</Label>
-                <Select 
-                  onValueChange={setSelectedProduit} 
-                  value={selectedProduit}
-                >
-                  <SelectTrigger id="produit-select" className="h-10">
-                    <SelectValue placeholder="Sélectionner un produit" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableProduits.map((produit) => (
-                      <SelectItem key={produit.id} value={produit.id}>
-                        {produit.nom}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid gap-1.5">
-                <Label htmlFor="quantite" className="text-sm">Quantité</Label>
-                <Input 
-                  id="quantite" 
-                  type="number" 
-                  min="1" 
-                  value={quantiteProduit} 
-                  onChange={(e) => setQuantiteProduit(parseInt(e.target.value) || 1)}
-                  className="h-10"
-                />
-              </div>
-
-              <div className="flex items-end">
-                <Button 
-                  type="button" 
-                  onClick={handleAddProduit}
-                  className="h-10 w-full"
-                >
-                  Ajouter
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {produits.length > 0 ? (
-            <div className="border rounded-lg overflow-hidden">
-              <table className="w-full">
-                <thead className="bg-muted/20">
-                  <tr>
-                    <th className="text-left p-2 text-sm font-medium">Produit</th>
-                    <th className="text-right p-2 text-sm font-medium">Quantité</th>
-                    <th className="text-center p-2 w-16 text-sm font-medium">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {produits.map((produit) => (
-                    <tr key={produit.id} className="border-t">
-                      <td className="p-2">{produit.nom}</td>
-                      <td className="p-2 text-right">{produit.quantite}</td>
-                      <td className="p-2 text-center">
-                        <Button 
-                          type="button" 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => handleRemoveProduit(produit.id)}
-                          className="h-8 w-8 p-0"
-                        >
-                          <Trash2 className="size-4 text-destructive" />
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p className="text-muted-foreground text-sm">Aucun produit associé</p>
-          )}
-        </div>
-
-        <div className="border-t pt-4 flex justify-end">
-          <Button 
-            type="submit" 
-            disabled={isSubmitting} 
-            className="h-10 font-medium"
-          >
-            {isSubmitting ? (
-              <Loader2 className="mr-2 size-4 animate-spin" />
-            ) : (
-              <PlusIcon className="size-4 mr-2" />
-            )}
-            Créer le chargement
-          </Button>
-        </div>
-      </form>
-      {error && <p className="text-destructive text-sm mt-4">{error}</p>}
-    </div>
-  );
-}
+import { ChargementCard } from "@/components/chargements/ChargementCard";
+import { NewChargementForm } from "@/components/forms/NewChargementForm";
 
 // Dashboard principal des chargements
 export default function ChargementsDashboard() {
@@ -506,6 +40,7 @@ export default function ChargementsDashboard() {
   const [transporteurs, setTransporteurs] = useState<Transporteur[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { showNotification, notificationElements } = useNotification();
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOption, setSortOption] = useState<'date_creation' | 'date_depart' | 'date_arrivee' | 'status' | 'client' | 'transporteur'>('date_creation');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -516,6 +51,7 @@ export default function ChargementsDashboard() {
   const [viewMode, setViewMode] = useState<'list' | 'card'>('list');
   const [selectedChargement, setSelectedChargement] = useState<Chargement | null>(null);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [newChargementDialogOpen, setNewChargementDialogOpen] = useState(false);
 
   const sortAndFilterChargements = useCallback(() => {
     let result = [...chargements];
@@ -595,6 +131,22 @@ export default function ChargementsDashboard() {
   useEffect(() => {
     sortAndFilterChargements();
   }, [sortAndFilterChargements]);
+  
+  // Écouter les événements de notification depuis les composants enfants
+  useEffect(() => {
+    const handleNotification = (event: Event) => {
+      const customEvent = event as CustomEvent<{message: string, type: 'success' | 'error' | 'info'}>;
+      if (customEvent.detail) {
+        showNotification(customEvent.detail.message, customEvent.detail.type);
+      }
+    };
+    
+    window.addEventListener('showNotification', handleNotification);
+    
+    return () => {
+      window.removeEventListener('showNotification', handleNotification);
+    };
+  }, [showNotification]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -626,8 +178,33 @@ export default function ChargementsDashboard() {
   }, []);
 
   // Suppression d'un chargement
-  const handleDeleteChargement = (id: string) => {
-    setChargements((prevChargements) => prevChargements.filter(c => c.id !== id));
+  const handleDeleteChargement = async (id: string) => {
+    try {
+      setLoading(true);
+      // Appel à la fonction de suppression dans Supabase
+      await deleteChargement(id);
+      // Mise à jour de l'état local après suppression réussie
+      setChargements((prevChargements) => prevChargements.filter(c => c.id !== id));
+      
+      // Notification de succès
+      showNotification("Chargement supprimé avec succès", "success");
+      
+      // Fermer la fenêtre de détails si elle était ouverte
+      if (detailsDialogOpen) {
+        setDetailsDialogOpen(false);
+        setSelectedChargement(null);
+      }
+      
+      // Recharger les données pour être sûr que la liste est à jour
+      loadData();
+      
+    } catch (error) {
+      console.error("Erreur lors de la suppression du chargement:", error);
+      setError("Échec de la suppression du chargement");
+      showNotification("Échec de la suppression du chargement", "error");
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Fonction pour afficher les détails d'un chargement
@@ -642,15 +219,29 @@ export default function ChargementsDashboard() {
     setSelectedChargement(null);
   };
   
-  // Fonction pour éditer un chargement (à implémenter avec modal dans le futur)
+  // Fonction pour éditer un chargement
   const handleEditChargement = (chargement: Chargement) => {
-    // Pour l'instant, on ferme simplement la fenêtre de détails
-    setDetailsDialogOpen(false);
-    setSelectedChargement(null);
+    // On vérifie que le chargement peut être modifié
+    if (chargement.status && chargement.status !== 'non_parti') {
+      showNotification("Ce chargement ne peut plus être modifié car il a déjà été expédié ou livré.", "error");
+      return;
+    }
     
-    // Ici, on pourrait ouvrir une fenêtre modale d'édition
-    // ou naviguer vers une page d'édition
-    alert(`Fonctionnalité d'édition pour le chargement ${chargement.id}`);
+    // On ferme d'abord la fenêtre de détails
+    setDetailsDialogOpen(false);
+    
+    // On définit le chargement à modifier
+    setSelectedChargement(chargement);
+    
+    // On ouvre le dialogue de création/édition avec le chargement sélectionné
+    setTimeout(() => {
+      // Utiliser un petit délai pour éviter des problèmes potentiels avec l'état du dialogue
+      setNewChargementDialogOpen(true);
+    }, 100);
+    
+  // Ici, on pourrait ouvrir une fenêtre modale d'édition
+  // ou naviguer vers une page d'édition
+  showNotification(`Fonctionnalité d'édition pour le chargement ${chargement.id}`, 'info');
     
     // Après l'édition, on recharge les données
     loadData();
@@ -675,6 +266,8 @@ export default function ChargementsDashboard() {
 
   return (
     <div className="font-sans min-h-screen px-2 py-3 sm:px-4 sm:py-4 max-w-full mx-auto">
+      {/* Notifications (bandeaux en bas) */}
+      {notificationElements}
       <main className="flex flex-col gap-3">
         
         {/* En-tête et bouton de création */}
@@ -682,21 +275,30 @@ export default function ChargementsDashboard() {
           <div className="flex flex-row justify-between items-center mb-2">
             <h2 className="text-xl font-semibold">Liste des chargements</h2>
             <div className="flex items-center gap-2">
-              <Dialog>
+              <Dialog open={newChargementDialogOpen} onOpenChange={setNewChargementDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button size="sm">
+                  <Button size="sm" onClick={() => {
+                    setSelectedChargement(null);  // Réinitialiser le chargement sélectionné pour créer un nouveau
+                    setNewChargementDialogOpen(true);
+                  }}>
                     <PlusIcon className="size-4 mr-1" />
                     Créer
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-3xl">
                   <DialogHeader>
-                    <DialogTitle>Ajouter un nouveau chargement</DialogTitle>
+                    <DialogTitle>
+                      {selectedChargement ? "Modifier un chargement" : "Ajouter un nouveau chargement"}
+                    </DialogTitle>
                   </DialogHeader>
                   <NewChargementForm 
-                    onChargementCreated={loadData}
+                    onChargementCreated={() => {
+                      loadData();
+                      setNewChargementDialogOpen(false);
+                    }}
                     clients={clients}
                     transporteurs={transporteurs}
+                    chargementToEdit={selectedChargement}
                   />
                 </DialogContent>
               </Dialog>
