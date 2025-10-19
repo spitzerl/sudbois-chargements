@@ -34,10 +34,7 @@ import {
 } from "@/components/ui/dialog";
 
 
-/**
- * Composant d'affichage et de gestion d'un chargement individuel
- * Permet la visualisation, modification et suppression d'un chargement
- */
+// Carte de chargement avec actions de modification et suppression
 function ChargementCard({ charge, onUpdate, onDelete }: { 
   charge: Chargement, 
   onUpdate: () => void, 
@@ -176,12 +173,12 @@ function ChargementCard({ charge, onUpdate, onDelete }: {
     setError(null);
   };
 
-  // Gérer la suppression d'un produit lors de la modification
+  // Suppression d'un produit
   const handleRemoveModifiedProduit = (id: string) => {
     setModifiedProduits(modifiedProduits.filter(p => p.id !== id));
   };
   
-  // Gérer la soumission du formulaire de modification
+  // Soumission des modifications
   const handleSubmitModification = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -223,7 +220,7 @@ function ChargementCard({ charge, onUpdate, onDelete }: {
     }
   };
   
-  // Gérer la suppression d'un chargement
+  // Suppression du chargement
   const handleDeleteChargement = async () => {
     setIsSubmitting(true);
     try {
@@ -702,9 +699,7 @@ function ChargementCard({ charge, onUpdate, onDelete }: {
 }
 
 
-/**
- * Formulaire de création d'un nouveau chargement
- */
+// Formulaire de création de chargement
 function NewChargementForm({ onChargementCreated, clients, transporteurs }: { 
     onChargementCreated: () => void, 
     clients: Client[], 
@@ -1021,10 +1016,7 @@ function NewChargementForm({ onChargementCreated, clients, transporteurs }: {
   );
 }
 
-/**
- * Composant principal du tableau de bord des chargements
- * Gère l'affichage, la création, le filtrage et le tri des chargements
- */
+// Dashboard principal des chargements
 export default function ChargementsDashboard() {
   const [chargements, setChargements] = useState<Chargement[]>([]);
   const [filteredChargements, setFilteredChargements] = useState<Chargement[]>([]);
@@ -1069,7 +1061,7 @@ export default function ChargementsDashboard() {
     setFilteredChargements(result);
   }, [chargements, searchTerm, filterStatus, sortOption, sortDirection]);
 
-  // Appliquer le tri et le filtrage chaque fois que les dépendances changent
+  // Tri et filtrage des chargements
   useEffect(() => {
     sortAndFilterChargements();
   }, [sortAndFilterChargements]);
@@ -1103,12 +1095,12 @@ export default function ChargementsDashboard() {
     }
   }, []);
 
-  // Gérer la suppression d'un chargement
+  // Suppression d'un chargement
   const handleDeleteChargement = (id: string) => {
     setChargements((prevChargements) => prevChargements.filter(c => c.id !== id));
   };
 
-  // Gérer le changement de direction du tri
+  // Changement de direction du tri
   const handleToggleSortDirection = () => {
     setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
   };

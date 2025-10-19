@@ -5,14 +5,12 @@ import { usePathname } from 'next/navigation';
 import { cn } from "@/lib/utils";
 import { Package, Truck } from "lucide-react";
 
-/**
- * Barre de navigation principale de l'application
- */
+// Barre de navigation principale
 export function Navbar({ className }: { className?: string }) {
   const pathname = usePathname();
 
   const isDashboardActive = pathname === "/";
-  const isProductsActive = pathname.startsWith("/produits");
+  const isManagerActive = pathname.startsWith("/manager");
 
   const getLinkClasses = (isActive: boolean) => cn(
     "flex items-center px-2 py-3 text-sm font-medium transition-colors",
@@ -44,12 +42,12 @@ export function Navbar({ className }: { className?: string }) {
           </Link>
 
           <Link
-            href="/produits"
-            className={getLinkClasses(isProductsActive)}
+            href="/manager"
+            className={getLinkClasses(isManagerActive)}
           >
             <Package className="h-4 w-4 sm:mr-2" />
-             <span className="hidden sm:inline">Produits</span>
-             <span className="inline sm:hidden">Prod.</span>
+             <span className="hidden sm:inline">Manager</span>
+             <span className="inline sm:hidden">Mgr.</span>
           </Link>
           
         </div>

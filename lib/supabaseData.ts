@@ -49,10 +49,7 @@ export async function fetchProduits() {
   return data as Produit[];
 }
 
-/**
- * Récupère la liste des chargements avec leurs clients, transporteurs et produits associés
- * Calcule également le statut en fonction des dates
- */
+// Récupère les chargements avec leurs relations et calcule le statut
 export async function fetchChargements() {
   const { data: chargementsData, error: chargementsError } = await supabase
     .from('chargements')
@@ -141,9 +138,7 @@ export async function fetchChargements() {
   return chargementsWithStatus as Chargement[];
 }
 
-/**
- * Crée un nouveau chargement et associe des produits si fournis
- */
+// Crée un chargement avec ses produits associés
 export async function createChargement(
   clientId: string, 
   transporteurId: string, 
@@ -202,10 +197,7 @@ export async function updateChargement(
   return true;
 }
 
-/**
- * Met à jour la liste des produits associés à un chargement
- * Supprime tous les produits existants puis en insère de nouveaux
- */
+// Met à jour les produits d'un chargement
 export async function updateChargementProduits(
   id: string,
   produits: { produitId: string, quantite: number }[]
@@ -233,9 +225,7 @@ export async function updateChargementProduits(
   return true;
 }
 
-/**
- * Supprime un chargement et tous ses produits associés
- */
+// Supprime un chargement et ses produits
 export async function deleteChargement(id: string) {
   const { error: produitError } = await supabase
     .from('chargement_produits')
@@ -250,4 +240,148 @@ export async function deleteChargement(id: string) {
   
   if (error) throw error;
   return true;
+}
+
+// Fonctions CRUD pour les clients
+
+// Crée un client
+export async function createClient(nom: string, adresse?: string) {
+  const { data, error } = await supabase
+    .from('clients')
+    .insert({ nom, adresse })
+    .select('id')
+    .single();
+  
+  if (error) throw error;
+  return data;
+}
+
+// Met à jour un client
+export async function updateClient(id: string, nom: string, adresse?: string) {
+  const { error } = await supabase
+    .from('clients')
+    .update({ nom, adresse })
+    .eq('id', id);
+  
+  if (error) throw error;
+  return true;
+}
+
+// Supprime un client
+export async function deleteClient(id: string) {
+  const { error } = await supabase
+    .from('clients')
+    .delete()
+    .eq('id', id);
+  
+  if (error) throw error;
+  return true;
+}
+
+// Récupère les détails d'un client
+export async function fetchClientDetails(id: string) {
+  const { data, error } = await supabase
+    .from('clients')
+    .select('*')
+    .eq('id', id)
+    .single();
+  
+  if (error) throw error;
+  return data;
+}
+
+// Fonctions CRUD pour les transporteurs
+
+// Crée un transporteur
+export async function createTransporteur(nom: string, contact?: string) {
+  const { data, error } = await supabase
+    .from('transporteurs')
+    .insert({ nom, contact })
+    .select('id')
+    .single();
+  
+  if (error) throw error;
+  return data;
+}
+
+// Met à jour un transporteur
+export async function updateTransporteur(id: string, nom: string, contact?: string) {
+  const { error } = await supabase
+    .from('transporteurs')
+    .update({ nom, contact })
+    .eq('id', id);
+  
+  if (error) throw error;
+  return true;
+}
+
+// Supprime un transporteur
+export async function deleteTransporteur(id: string) {
+  const { error } = await supabase
+    .from('transporteurs')
+    .delete()
+    .eq('id', id);
+  
+  if (error) throw error;
+  return true;
+}
+
+// Récupère les détails d'un transporteur
+export async function fetchTransporteurDetails(id: string) {
+  const { data, error } = await supabase
+    .from('transporteurs')
+    .select('*')
+    .eq('id', id)
+    .single();
+  
+  if (error) throw error;
+  return data;
+}
+
+// Fonctions CRUD pour les produits
+
+// Crée un produit
+export async function createProduit(nom: string, description?: string) {
+  const { data, error } = await supabase
+    .from('produits')
+    .insert({ nom, description })
+    .select('id')
+    .single();
+  
+  if (error) throw error;
+  return data;
+}
+
+// Met à jour un produit
+export async function updateProduit(id: string, nom: string, description?: string) {
+  const { error } = await supabase
+    .from('produits')
+    .update({ nom, description })
+    .eq('id', id);
+  
+  if (error) throw error;
+  return true;
+}
+
+// Supprime un produit
+export async function deleteProduit(id: string) {
+  const { error } = await supabase
+    .from('produits')
+    .delete()
+    .eq('id', id);
+  
+  if (error) throw error;
+  return true;
+}
+
+// Récupère les détails d'un produit
+export async function fetchProduitDetails(id: string) {
+  const { data, error } = await supabase
+    .from('produits')
+    .select('*')
+    .eq('id', id)
+    .single();
+  
+  if (error) throw error;
+  return data;
 }
